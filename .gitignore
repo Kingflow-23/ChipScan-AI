@@ -38,9 +38,10 @@ model/*.pth
 runs/**/weights/*.pt
 
 # === Training Outputs ===
-runs/
 *.log
 *.ckpt
+runs/*
+
 
 # Except .gitkeep
 !runs/.gitkeep
