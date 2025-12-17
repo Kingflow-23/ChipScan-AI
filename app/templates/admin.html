@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Panel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f9;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 12px 20px;
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+
+        button:hover:enabled {
+            background-color: #c0392b;
+        }
+
+        button:disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
+        }
+
+        #status {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Admin Panel</h1>
+
+<button id="retrainBtn" onclick="retrain()">Start Retraining</button>
+
+<p id="status"></p>
+
+<script>
+async function retrain() {
+    const btn = document.getElementById("retrainBtn");
+    const status = document.getElementById("status");
+
+    btn.disabled = true;
+    status.innerText = "Starting retraining...";
+
+    try {
+        const res = await fetch("/retrain", { method: "POST" });
+        const data = await res.json();
+        status.innerText = data.status || "Retraining triggered";
+    } catch (err) {
+        status.innerText = "Error: " + err.message;
+    } finally {
+        btn.disabled = false;
+    }
+}
+</script>
+
+</body>
+</html>

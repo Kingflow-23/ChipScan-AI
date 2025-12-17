@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Batch Correction</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-image: url("/static/background_images/correction.png");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            color: #333;
+            padding: 20px;
+        }
+
+        #image-container { position: relative; display: inline-block; margin-bottom: 15px; }
+        .bbox { position: absolute; border: 2px dashed red; pointer-events: none; }
+        #controls { margin-top: 15px; }
+        button { margin-right: 10px; padding: 8px 16px; }
+        #progress { margin-top: 10px; font-weight: bold; color: white; text-shadow: 1px 1px 2px black; }
+        h1 { color: white; text-shadow: 1px 1px 3px black; }
+        select { padding: 4px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+<h1>Batch Correction</h1>
+
+<div id="image-container">
+    <img id="image" width="600"/>
+</div>
+
+<p>Click two corners to define bounding box</p>
+
+<select id="class_id">
+    <option value="0">Chip</option>
+    <option value="1">Void</option>
+</select>
+
+<div id="controls">
+    <button id="undo-btn" disabled>Undo Last Box</button>
+    <button id="skip-btn">Skip Image</button>
+    <button id="submit-btn" disabled>Submit Image</button>
+    <button id="finish-btn" style="display:none;">Finish & Submit Batch</button>
+</div>
+
+<p id="progress"></p>
+
+<script>
+let batchResults = {{ results|tojson }};
+let currentIndex = 0;
+let clicks = [];
+let currentBoxes = [];
+let updates = [];
+
+const img = document.getElementById("image");
+const container = document.getElementById("image-container");
+const submitBtn = document.getElementById("submit-btn");
+const skipBtn = document.getElementById("skip-btn");
+const undoBtn = document.getElementById("undo-btn");
+const finishBtn = document.getElementById("finish-btn");
+const classSelect = document.getElementById("class_id");
+const progressText = document.getElementById("progress");
+
+// Load image and previous boxes
+function loadImage(index) {
+    if (index >= batchResults.length) {
+        img.style.display = 'none';
+        submitBtn.style.display = 'none';
+        skipBtn.style.display = 'none';
+        undoBtn.style.display = 'none';
+        finishBtn.style.display = 'inline';
+        progressText.textContent = "All images reviewed!";
+        return;
+    }
+
+    const item = batchResults[index];
+    img.src = item.image_url;
+
+    // Clear previous boxes
+    currentBoxes = [];
+    clicks = [];
+    container.querySelectorAll('.bbox').forEach(b => b.remove());
+
+    // Load previous corrections if any
+    if (item.chips && item.chips.length > 0) {
+        item.chips.forEach(chip => addBoxDiv(chip.bbox, chip.class_id));
+    }
+
+    submitBtn.disabled = false;
+    undoBtn.disabled = true;
+    progressText.textContent = `Image ${index+1} of ${batchResults.length}: ${item.filename}`;
+}
+
+// Add a box div overlay
+function addBoxDiv(bbox, class_id) {
+    const [x1, y1, x2, y2] = bbox;
+    const scaleX = img.width / img.naturalWidth;
+    const scaleY = img.height / img.naturalHeight;
+
+    const div = document.createElement('div');
+    div.className = 'bbox';
+    div.style.left = Math.min(x1,x2)*scaleX + 'px';
+    div.style.top = Math.min(y1,y2)*scaleY + 'px';
+    div.style.width = Math.abs(x2-x1)*scaleX + 'px';
+    div.style.height = Math.abs(y2-y1)*scaleY + 'px';
+    div.dataset.class_id = class_id;
+    container.appendChild(div);
+
+    currentBoxes.push({bbox: bbox, class_id: class_id, div: div});
+    undoBtn.disabled = false;
+}
+
+// Handle clicks to define new bbox
+img.onclick = (e) => {
+    clicks.push([e.offsetX, e.offsetY]);
+    if (clicks.length === 2) {
+        const scaleX = img.naturalWidth / img.width;
+        const scaleY = img.naturalHeight / img.height;
+        const bbox = [
+            clicks[0][0]*scaleX, clicks[0][1]*scaleY,
+            clicks[1][0]*scaleX, clicks[1][1]*scaleY
+        ];
+        const class_id = parseInt(classSelect.value);
+        addBoxDiv(bbox, class_id);
+        clicks = [];
+    }
+};
+
+// Undo last box
+undoBtn.onclick = () => {
+    if (currentBoxes.length === 0) return;
+    const last = currentBoxes.pop();
+    last.div.remove();
+    if (currentBoxes.length === 0) undoBtn.disabled = true;
+};
+
+// Submit current image
+submitBtn.onclick = () => {
+    const item = batchResults[currentIndex];
+    updates.push({
+        image_id: item.image_id,
+        status: currentBoxes.length > 0 ? "corrected" : "skipped",
+        correction: {chips: currentBoxes.map(c => ({bbox: c.bbox, class_id: c.class_id}))}
+    });
+    currentIndex++;
+    loadImage(currentIndex);
+};
+
+// Skip image without correction
+skipBtn.onclick = () => {
+    const item = batchResults[currentIndex];
+    updates.push({image_id: item.image_id, status: "skipped", correction: null});
+    currentIndex++;
+    loadImage(currentIndex);
+};
+
+// Finish batch and submit
+finishBtn.onclick = async () => {
+    const batch_id = batchResults[0].batch_id;
+    const res = await fetch("/batch_correct", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({batch_id: batch_id, updates: updates})
+    });
+    const data = await res.json();
+    if (res.ok) {
+        alert(`Batch saved! ${data.saved_count} images updated.`);
+        finishBtn.style.display = 'none';
+        const retrainBtn = document.createElement('button');
+        retrainBtn.textContent = "Retrain Model";
+        retrainBtn.onclick = async () => {
+            await fetch("/retrain", {method: "POST"});
+            alert("Retraining started!");
+        };
+        document.getElementById("controls").appendChild(retrainBtn);
+    } else {
+        alert("Error saving batch: " + data.error);
+    }
+};
+
+// Load first image
+loadImage(currentIndex);
+</script>
+
+</body>
+</html>

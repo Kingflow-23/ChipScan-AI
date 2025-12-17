@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Void Detection – Upload</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f9;
+            background-image: url('static/background_images/prediction.png');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            color: #2c3e50;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        form {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 420px;
+        }
+
+        input[type="file"] {
+            padding: 5px;
+        }
+
+        button {
+            padding: 12px;
+            background-color: #3498db;
+            color: #fff;
+            font-size: 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        #preview {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 25px;
+            justify-content: center;
+            max-width: 900px;
+        }
+
+        #preview img {
+            max-width: 150px;
+            border-radius: 6px;
+            border: 2px solid #ddd;
+        }
+
+        #showResults {
+            display: none;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Upload Images for Void Detection</h1>
+
+<form id="uploadForm">
+    <input type="file" name="images" multiple required />
+    <button type="submit">Run Inference</button>
+</form>
+
+<div id="preview"></div>
+
+<button id="showResults">Show Results</button>
+
+<script>
+const uploadForm = document.getElementById("uploadForm");
+const previewContainer = document.getElementById("preview");
+const showResultsBtn = document.getElementById("showResults");
+
+let batchId = null;
+
+// Handle form submission
+uploadForm.onsubmit = async (e) => {
+    e.preventDefault();
+
+    previewContainer.innerHTML = "";
+    showResultsBtn.style.display = "none";
+    batchId = null;
+
+    const formData = new FormData(uploadForm);
+
+    try {
+        const response = await fetch("/predict", {
+            method: "POST",
+            body: formData
+        });
+
+        const results = await response.json();
+        batchId = results.batch_id;
+
+        // Show previews of uploaded files
+        Array.from(uploadForm.elements.images.files).forEach(file => {
+            const img = document.createElement("img");
+            img.src = URL.createObjectURL(file);
+            previewContainer.appendChild(img);
+        });
+
+        // Show the "Show Results" button
+        showResultsBtn.style.display = "block";
+
+    } catch (err) {
+        console.error("Prediction failed", err);
+        alert("Prediction failed. Check console for details.");
+    }
+};
+
+// Redirect to batch results
+showResultsBtn.onclick = () => {
+    if (batchId) {
+        window.location.href = `/results/batch/${batchId}`;
+    } else {
+        alert("Batch ID not found. Please run inference first.");
+    }
+};
+
+// Optional: immediate preview before inference
+document.querySelector('input[name="images"]').addEventListener('change', (e) => {
+    previewContainer.innerHTML = "";
+    showResultsBtn.style.display = "none";
+
+    Array.from(e.target.files).forEach(file => {
+        const img = document.createElement("img");
+        img.src = URL.createObjectURL(file);
+        previewContainer.appendChild(img);
+    });
+});
+</script>
+
+</body>
+</html>
