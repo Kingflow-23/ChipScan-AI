@@ -10,6 +10,8 @@ from flask import Flask, request, jsonify, render_template
 from services.inference import run_inference_service
 from services.correction import correct_segmentation_service
 from services.retrain import start_retraining
+from utils.sam_model import load_sam_model
+
 from config import UPLOAD_DIR, RESULT_DIR, T_MODEL_PATH, RESULT_JSON_DIR
 
 # ---------------------------------------------------------------------------
@@ -20,9 +22,13 @@ app = Flask(__name__, static_folder="static", template_folder="templates")
 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 RESULT_DIR.mkdir(parents=True, exist_ok=True)
+RESULT_JSON_DIR.mkdir(parents=True, exist_ok=True)
 
 # Load YOLO model once
 model = YOLO(str(T_MODEL_PATH))
+
+# Load SAM predictor once
+_sam_predictor = load_sam_model()
 
 # ---------------------------------------------------------------------------
 # Routes – Pages
@@ -130,20 +136,9 @@ def correct_batch_page(batch_id):
 @app.route("/correct", methods=["POST"])
 def batch_correct():
     """
-    Handle batch corrections:
-    - Input JSON: {
-        "batch_id": "...",
-        "updates": [
-            {
-                "image_id": "...",
-                "correction": { "chips": [...], "voids": [...] },  # optional
-                "status": "skipped" | "corrected"
-            },
-            ...
-        ]
-      }
+    Processes user corrections with SAM, saves overlay, mask, YOLO labels.
     """
-    data = request.get_json(silent=True)
+    data = request.get_json()
     if not data:
         return jsonify({"error": "Invalid JSON"}), 400
 
@@ -153,12 +148,10 @@ def batch_correct():
     if not batch_id or not updates:
         return jsonify({"error": "Missing batch_id or updates"}), 400
 
-    saved_count = 0
-
-    for u in updates:
-        image_id = u.get("image_id")
-        correction = u.get("correction", {})
-        status = u.get("status", "skipped")
+    for update in updates:
+        image_id = update.get("image_id")
+        status = update.get("status", "skipped")
+        correction = update.get("correction", {})
 
         json_path = RESULT_JSON_DIR / f"{image_id}.json"
         if not json_path.exists():
@@ -167,29 +160,41 @@ def batch_correct():
         with open(json_path, "r") as f:
             info = json.load(f)
 
-        # Merge corrected data if provided
-        if correction:
-            info["chips"] = correction.get("chips", info.get("chips", []))
-            info["num_chips"] = len(info["chips"])
-            # Recalculate global_void_rate if you want
-            total_void_area = sum(ch.get("void_area", 0) for ch in info["chips"])
-            total_chip_area = sum(ch.get("chip_area", 0) for ch in info["chips"])
-            info["global_void_rate"] = (
-                round((total_void_area / total_chip_area) * 100, 2)
-                if total_chip_area > 0
-                else 0
-            )
-
-        # Mark image as checked
         info["status"] = status
+
+        # Reset annotations
+        info["annotations"] = []
+
+        # Process each manual bounding box using SAM
+        for c in correction.get("chips", []):
+            bbox = c["bbox"]
+            class_id = c["class_id"]
+
+            try:
+                result = correct_segmentation_service(
+                    image_id=image_id,
+                    bounding_box=bbox,
+                    class_id=class_id,
+                )
+                info["annotations"].append(
+                    {
+                        "class_id": class_id,
+                        "bbox": bbox,
+                        "source": "manual",
+                        "mask_path": result["mask_path"],
+                        "overlay_path": result["overlay_path"],
+                        "yolo_label_path": result["yolo_label_path"],
+                    }
+                )
+            except Exception as e:
+                print(f"[ERROR] SAM correction failed for {image_id}, bbox {bbox}: {e}")
+                continue
 
         # Save updated JSON
         with open(json_path, "w") as f:
             json.dump(info, f, indent=2)
 
-        saved_count += 1
-
-    return jsonify({"status": "batch_saved", "saved_count": saved_count})
+    return jsonify({"status": "corrections_saved"})
 
 
 @app.route("/retrain", methods=["POST"])
