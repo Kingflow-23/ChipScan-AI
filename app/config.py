@@ -11,6 +11,7 @@ RUNS_DIR = BASE_DIR.parent / "runs"
 UPLOAD_DIR = BASE_DIR / "static" / "uploads"
 RESULT_DIR = BASE_DIR / "static" / "results"
 RESULT_JSON_DIR = BASE_DIR / "static" / "results_json"
+LABELS_DIR = BASE_DIR / "static" / "labels"
 
 NT_MODEL_PATH = MODEL_DIR / "yolo11s-seg.pt"
 T_MODEL_PATH = MODEL_DIR / "yolo11s-seg-trained.pt"
