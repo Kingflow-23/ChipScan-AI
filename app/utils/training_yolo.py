@@ -17,7 +17,7 @@ def train_model(resume=False):
     # === Unique run name with datetime ===
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_name = f"yolo11s_seg_{timestamp}"
-    
+
     # === Set epochs depending on whether it's incremental retraining ===
     num_epochs = 100 if not resume else 15  # 100 for full, 15 for active learning
 
