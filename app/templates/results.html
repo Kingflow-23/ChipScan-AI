@@ -60,10 +60,11 @@
         }
 
         .result-card img {
+            display: block;
+            margin: 0 auto 20px auto;   /* centers horizontally */
             max-width: 100%;
             border-radius: 6px;
             border: 2px solid #ddd;
-            margin-bottom: 20px;
         }
 
         .filename {
@@ -133,6 +134,40 @@
         button:hover {
             background-color: #d35400;
         }
+
+        /* Center overlay-container horizontally */
+        .overlay-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        /* Wrap image + labels */
+        .image-wrapper {
+            position: relative; /* labels are positioned relative to this */
+            display: inline-block;
+        }
+
+        /* Image styling */
+        .result-image {
+            display: block;
+            max-width: 100%;
+            border-radius: 6px;
+            border: 2px solid #ddd;
+        }
+
+        /* Labels remain absolute inside .image-wrapper */
+        .chip-label {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.75);
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 4px;
+            pointer-events: none;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -150,7 +185,19 @@
 
     <h2 class="filename">{{ item.filename }}</h2>
 
-    <img src="{{ item.overlay_url }}" alt="Segmentation Overlay">
+    <div class="overlay-container">
+        <div class="image-wrapper">
+            <img src="{{ item.overlay_url }}" alt="Segmentation Overlay" class="result-image">
+
+            {% for chip in item.chips %}
+            <div class="chip-label"
+                data-x="{{ chip.bbox[0] }}"
+                data-y="{{ chip.bbox[1] }}">
+                ID {{ chip.chip_id }}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
 
     <!-- Image-level summary -->
     <div class="summary">
@@ -186,13 +233,32 @@
 
 <script>
 function moveToLabeling() {
-    // Redirect the user to the first image's correction page or implement your labeling logic
     {% if results|length > 0 %}
-    window.location.href = '/correct/{{ results[0].image_id }}';
+    const batchId = "{{ results[0].batch_id }}";
+    window.location.href = `/correct/batch/${batchId}`;
     {% else %}
     alert("No images available to label.");
     {% endif %}
 }
+</script>
+
+<script>
+document.querySelectorAll(".overlay-container").forEach(container => {
+    const img = container.querySelector(".result-image");
+
+    img.onload = () => {
+        const scaleX = img.clientWidth / img.naturalWidth;
+        const scaleY = img.clientHeight / img.naturalHeight;
+
+        container.querySelectorAll(".chip-label").forEach(label => {
+            const x = parseFloat(label.dataset.x) * scaleX;
+            const y = parseFloat(label.dataset.y) * scaleY;
+
+            label.style.left = x + "px";
+            label.style.top = y + "px";
+        });
+    };
+});
 </script>
 
 </body>
