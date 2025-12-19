@@ -20,6 +20,30 @@
             align-items: center;
         }
 
+        .top-buttons {
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .top-buttons button {
+            padding: 10px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+
+        .top-buttons button:hover {
+            background-color: #2980b9;
+        }
+
         .page-container {
             width: 100%;
             max-width: 1200px;
@@ -37,21 +61,30 @@
 
         .image-row {
             display: flex;
+            justify-content: center; /* centers the row horizontally */
             gap: 30px;
-            justify-content: center;
-            align-items: flex-start;
             margin-bottom: 20px;
         }
 
         #image-container {
             position: relative;
-            display: inline-block;
+            display: flex;
+            justify-content: center; /* centers canvas and image horizontally */
+            align-items: center;     /* centers vertically if container is taller */
+            margin: 0 auto;
         }
 
-        img {
-            width: 500px;
+        #image-container img {
+            display: block;
+            max-width: 100%;
             border-radius: 6px;
             border: 2px solid #ddd;
+        }
+
+        #overlay-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
         }
 
         h3 {
@@ -106,6 +139,14 @@
             color: white;
             text-shadow: 1px 1px 2px black;
         }
+
+        #finish-btn {
+            background-color: #8e44ad; /* Purple */
+        }
+
+        #finish-btn:hover {
+            background-color: #732d91;
+        }
     </style>
 </head>
 
@@ -114,32 +155,45 @@
 
     <h1>Batch Correction</h1>
 
-    <div class="image-row">
-        <div>
-            <h3>Editable Image</h3>
-            <div id="image-container">
-                <img id="image">
-            </div>
-        </div>
-
-        <div>
-            <h3>Model Prediction</h3>
-            <img id="prediction">
-        </div>
+    <!-- Top Buttons -->
+    <div class="top-buttons">
+        <button onclick="window.location.href='/'">Run New Prediction</button>
+        <button onclick="goToBatchResults()">Back to Batch Results</button>
     </div>
 
-    <p style="color:white;">Click and drag to draw bounding boxes</p>
 
-    <div class="toolbar">
+    <div class="image-row" id="image-section">
+        <div>
+            <h3>Model Prediction (click to correct errors)</h3>
+            <div id="image-container">
+                <img id="image">
+                <canvas id="overlay-canvas"></canvas>
+            </div>
+        </div>  
+    </div>
+
+    <p id="instruction-text" style="color:white;">
+        Click and drag to draw bounding boxes
+    </p>
+
+    <div class="toolbar" id="toolbar">
         <select id="class_id">
             <option value="0">Chip</option>
             <option value="1">Void</option>
         </select>
 
         <button id="undo-btn" disabled>Undo</button>
-        <button id="check-btn">Mark as Checked</button>
         <button id="submit-btn">Submit Image</button>
-        <button id="finish-btn" style="display:none;">Finish Batch</button>
+    </div>
+
+    <div id="completion-section" style="display:none; text-align:center;">
+        <h2 style="color:white; text-shadow:1px 1px 4px black;">
+            Batch review completed
+        </h2>
+
+        <button id="finish-btn" style="font-size:18px; padding:12px 28px;">
+            Proceed to Retraining
+        </button>
     </div>
 
     <p id="progress"></p>
@@ -152,21 +206,28 @@ let currentIndex = 0;
 let currentBoxes = [];
 let updates = [];
 
-let firstPoint = null;
-
 const img = document.getElementById("image");
-const container = document.getElementById("image-container");
-const predictionImg = document.getElementById("prediction");
+const canvas = document.getElementById("overlay-canvas");
+const ctx = canvas.getContext("2d");
 
 const undoBtn = document.getElementById("undo-btn");
 const submitBtn = document.getElementById("submit-btn");
-const checkBtn = document.getElementById("check-btn");
 const finishBtn = document.getElementById("finish-btn");
 const classSelect = document.getElementById("class_id");
 const progressText = document.getElementById("progress");
 
+let firstPoint = null;
+
+// Adjust canvas size when image loads
+img.onload = () => {
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+};
+
+// Get mouse position relative to canvas
 function getMousePos(e) {
-    const rect = img.getBoundingClientRect();
+    const rect = canvas.getBoundingClientRect();
     return {
         x: e.clientX - rect.left,
         y: e.clientY - rect.top
@@ -175,47 +236,57 @@ function getMousePos(e) {
 
 function loadImage(index) {
     if (index >= batchResults.length) {
-        img.style.display = "none";
-        predictionImg.style.display = "none";
-        submitBtn.style.display = "none";
-        checkBtn.style.display = "none";
-        undoBtn.style.display = "none";
-        finishBtn.style.display = "inline";
-        progressText.textContent = "All images reviewed.";
+        document.getElementById("image-section").style.display = "none";
+        document.getElementById("toolbar").style.display = "none";
+        document.getElementById("instruction-text").style.display = "none";
+        progressText.style.display = "none";
+        document.getElementById("completion-section").style.display = "block";
         return;
     }
 
     const item = batchResults[index];
-    img.src = item.image_url;
-    predictionImg.src = item.overlay_url;
+    img.src = item.overlay_url;
 
-    container.querySelectorAll(".bbox").forEach(b => b.remove());
     currentBoxes = [];
-    undoBtn.disabled = true;
     firstPoint = null;
+    undoBtn.disabled = true;
 
-    progressText.textContent =
-        `Image ${index + 1} of ${batchResults.length}: ${item.filename}`;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    progressText.textContent = `Image ${index + 1} of ${batchResults.length}: ${item.filename}`;
 }
 
-/* ================================
-   TWO-CLICK BOX LOGIC
-================================ */
+// Draw box on canvas
+function drawBox(p1, p2, class_id) {
+    ctx.strokeStyle = class_id === 0 ? "red" : "yellow";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6]);
+    ctx.strokeRect(Math.min(p1.x, p2.x), Math.min(p1.y, p2.y),
+                   Math.abs(p2.x - p1.x), Math.abs(p2.y - p1.y));
+}
 
-img.onclick = (e) => {
+// Redraw all current boxes
+function redrawBoxes() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    currentBoxes.forEach(b => {
+        const p1 = { x: b.bbox[0] / (img.naturalWidth / canvas.width), y: b.bbox[1] / (img.naturalHeight / canvas.height) };
+        const p2 = { x: b.bbox[2] / (img.naturalWidth / canvas.width), y: b.bbox[3] / (img.naturalHeight / canvas.height) };
+        drawBox(p1, p2, b.class_id);
+    });
+}
+
+// Canvas click for two-point box creation
+canvas.onclick = (e) => {
     const pos = getMousePos(e);
 
-    // First click
     if (!firstPoint) {
         firstPoint = pos;
         return;
     }
 
-    // Second click → finalize box
     const secondPoint = pos;
-
-    const scaleX = img.naturalWidth / img.width;
-    const scaleY = img.naturalHeight / img.height;
+    const scaleX = img.naturalWidth / canvas.width;
+    const scaleY = img.naturalHeight / canvas.height;
 
     const bbox = [
         firstPoint.x * scaleX,
@@ -224,73 +295,54 @@ img.onclick = (e) => {
         secondPoint.y * scaleY
     ];
 
-    addBox(bbox, parseInt(classSelect.value));
+    currentBoxes.push({ bbox, class_id: parseInt(classSelect.value) });
+    drawBox(firstPoint, secondPoint, parseInt(classSelect.value));
     firstPoint = null;
+    undoBtn.disabled = false;
 };
 
-function addBox(bbox, class_id) {
-    const [x1, y1, x2, y2] = bbox;
-
-    const scaleX = img.width / img.naturalWidth;
-    const scaleY = img.height / img.naturalHeight;
-
-    const div = document.createElement("div");
-    div.className = "bbox " + (class_id === 0 ? "chip" : "void");
-
-    div.style.left = Math.min(x1, x2) * scaleX + "px";
-    div.style.top = Math.min(y1, y2) * scaleY + "px";
-    div.style.width = Math.abs(x2 - x1) * scaleX + "px";
-    div.style.height = Math.abs(y2 - y1) * scaleY + "px";
-
-    container.appendChild(div);
-    currentBoxes.push({ bbox, class_id, div });
-    undoBtn.disabled = false;
-}
-
+// Undo last box
 undoBtn.onclick = () => {
     if (!currentBoxes.length) return;
-    currentBoxes.pop().div.remove();
+    currentBoxes.pop();
+    redrawBoxes();
     undoBtn.disabled = currentBoxes.length === 0;
 };
 
+// Submit current corrections
 submitBtn.onclick = () => {
     const item = batchResults[currentIndex];
     updates.push({
         image_id: item.image_id,
-        status: currentBoxes.length ? "corrected" : "skipped",
+        status: currentBoxes.length ? "corrected" : "ok",
         correction: {
-            chips: currentBoxes.map(c => ({
-                bbox: c.bbox,
-                class_id: c.class_id
-            }))
+            chips: currentBoxes.map(c => ({ bbox: c.bbox, class_id: c.class_id }))
         }
     });
     loadImage(++currentIndex);
 };
 
-checkBtn.onclick = () => {
-    const item = batchResults[currentIndex];
-    updates.push({
-        image_id: item.image_id,
-        status: "checked",
-        correction: { chips: [] }
-    });
-    loadImage(++currentIndex);
-};
-
+// Finish batch and send to server
 finishBtn.onclick = async () => {
     await fetch("/batch_correct", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            batch_id: batchResults[0].batch_id,
-            updates
-        })
+        body: JSON.stringify({ batch_id: batchResults[0].batch_id, updates })
     });
-    alert("Batch saved. Retraining can begin.");
+
+    window.location.href = `/retrain/${batchResults[0].batch_id}`;
 };
 
 loadImage(currentIndex);
+
+function goToBatchResults() {
+    if (batchResults.length > 0) {
+        const batchId = batchResults[0].batch_id;
+        window.location.href = `/results/batch/${batchId}`;
+    } else {
+        alert("No batch data available.");
+    }
+}
 </script>
 
 </body>
