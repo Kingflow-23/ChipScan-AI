@@ -21,14 +21,15 @@ def run_inference_service(image_path: str, conf: float = 0.25) -> dict:
         }
 
     masks = (result.masks.data > 0.5).cpu().numpy().astype(np.uint8)
+    boxes = result.boxes.xyxy.cpu().numpy()
     classes = result.boxes.cls.cpu().numpy().astype(int)
 
-    chip_masks = []
+    chip_entries = []
     void_masks = []
 
-    for mask, cls in zip(masks, classes):
+    for mask, box, cls in zip(masks, boxes, classes):
         if cls == CHIP_CLASS:
-            chip_masks.append(mask.astype(bool))
+            chip_entries.append({"mask": mask.astype(bool), "bbox": box.tolist()})
         elif cls == VOID_CLASS:
             void_masks.append(mask.astype(bool))
 
@@ -36,7 +37,10 @@ def run_inference_service(image_path: str, conf: float = 0.25) -> dict:
     total_chip_area = 0
     total_void_area = 0
 
-    for idx, chip_mask in enumerate(chip_masks, start=1):
+    for idx, chip in enumerate(chip_entries, start=1):
+        chip_mask = chip["mask"]
+        bbox = chip["bbox"]
+
         chip_area = compute_mask_area(chip_mask)
         total_chip_area += chip_area
 
@@ -51,12 +55,23 @@ def run_inference_service(image_path: str, conf: float = 0.25) -> dict:
 
         total_void_area += chip_void_area
 
-        chips_metrics.append({
-            "chip_id": idx,
-            "chip_area": int(chip_area),
-            "void_rate_pct": round((chip_void_area / chip_area) * 100, 2) if chip_area > 0 else 0.0,
-            "max_void_pct": round((max_void_area / chip_area) * 100, 2) if chip_area > 0 else 0.0,
-        })
+        chips_metrics.append(
+            {
+                "chip_id": idx,
+                "chip_area": int(chip_area),
+                "void_rate_pct": (
+                    round((chip_void_area / chip_area) * 100, 2)
+                    if chip_area > 0
+                    else 0.0
+                ),
+                "max_void_pct": (
+                    round((max_void_area / chip_area) * 100, 2)
+                    if chip_area > 0
+                    else 0.0
+                ),
+                "bbox": bbox,
+            }
+        )
 
     global_void_rate = (
         round((total_void_area / total_chip_area) * 100, 2)
@@ -66,7 +81,7 @@ def run_inference_service(image_path: str, conf: float = 0.25) -> dict:
 
     return {
         "image": image_path,
-        "num_chips": len(chip_masks),
+        "num_chips": len(chip_entries),
         "num_voids": len(void_masks),
         "chip_area": int(total_chip_area),
         "void_area": int(total_void_area),
