@@ -1,6 +1,7 @@
+import cv2
 import numpy as np
 from utils.yolo_inference import run_inference
-from utils.mask_utils import compute_mask_area
+from utils.mask_utils import compute_mask_area, mask_to_polygon
 
 from config import CHIP_CLASS, VOID_CLASS
 
@@ -20,6 +21,7 @@ def run_inference_service(
             "void_area": 0,
             "void_rate": 0.0,
             "chips": [],
+            "voids": [],
         }
 
     masks = (result.masks.data > 0.5).cpu().numpy().astype(np.uint8)
@@ -27,6 +29,7 @@ def run_inference_service(
     classes = result.boxes.cls.cpu().numpy().astype(int)
 
     chip_entries = []
+    void_entries = []
     void_masks = []
 
     for mask, box, cls in zip(masks, boxes, classes):
@@ -34,6 +37,7 @@ def run_inference_service(
             chip_entries.append({"mask": mask.astype(bool), "bbox": box.tolist()})
         elif cls == VOID_CLASS:
             void_masks.append(mask.astype(bool))
+            void_entries.append({"bbox": box.tolist()})
 
     chips_metrics = []
     total_chip_area = 0
@@ -89,6 +93,7 @@ def run_inference_service(
         "void_area": int(total_void_area),
         "void_rate": global_void_rate,
         "chips": chips_metrics,
+        "voids": void_entries,
     }
 
     if return_raw:
