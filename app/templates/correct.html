@@ -203,7 +203,8 @@
 <script>
 let batchResults = {{ results|tojson }};
 let currentIndex = 0;
-let currentBoxes = [];
+let boxes = [];          // all boxes for current image
+let undoStack = [];      // only for user-added boxes
 let updates = [];
 
 const img = document.getElementById("image");
@@ -222,18 +223,16 @@ let firstPoint = null;
 img.onload = () => {
     canvas.width = img.width;
     canvas.height = img.height;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    redrawBoxes();
 };
 
 // Get mouse position relative to canvas
 function getMousePos(e) {
     const rect = canvas.getBoundingClientRect();
-    return {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top
-    };
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
 }
 
+// Load image and populate boxes
 function loadImage(index) {
     if (index >= batchResults.length) {
         document.getElementById("image-section").style.display = "none";
@@ -245,96 +244,169 @@ function loadImage(index) {
     }
 
     const item = batchResults[index];
-    img.src = item.overlay_url;
+    img.src = item.image_url;
 
-    currentBoxes = [];
-    firstPoint = null;
-    undoBtn.disabled = true;
+    boxes = [];
+    undoStack = [];
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Convert model-predicted boxes into editable=false boxes
+    item.chips?.forEach(chip => boxes.push({ bbox: chip.bbox, class_id: 0, editable: false }));
+    item.voids?.forEach(voidBox => boxes.push({ bbox: voidBox.bbox, class_id: 1, editable: false }));
+
+    redrawBoxes();
 
     progressText.textContent = `Image ${index + 1} of ${batchResults.length}: ${item.filename}`;
 }
 
-// Draw box on canvas
-function drawBox(p1, p2, class_id) {
+// Draw a single box on canvas
+function drawBox(bbox, class_id) {
+    const scaleX = canvas.width / img.naturalWidth;
+    const scaleY = canvas.height / img.naturalHeight;
+    const x1 = bbox[0] * scaleX;
+    const y1 = bbox[1] * scaleY;
+    const x2 = bbox[2] * scaleX;
+    const y2 = bbox[3] * scaleY;
+
     ctx.strokeStyle = class_id === 0 ? "red" : "yellow";
     ctx.lineWidth = 2;
     ctx.setLineDash([6]);
-    ctx.strokeRect(Math.min(p1.x, p2.x), Math.min(p1.y, p2.y),
-                   Math.abs(p2.x - p1.x), Math.abs(p2.y - p1.y));
+    ctx.strokeRect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1));
 }
 
-// Redraw all current boxes
+let mode = 'add'; // 'add' or 'delete'
+
+// Add a toggle button
+const toolbar = document.getElementById("toolbar");
+const modeBtn = document.createElement("button");
+modeBtn.textContent = "Switch to Delete Mode";
+modeBtn.onclick = () => {
+    if (mode === 'add') {
+        mode = 'delete';
+        modeBtn.textContent = "Switch to Add Mode";
+    } else {
+        mode = 'add';
+        modeBtn.textContent = "Switch to Delete Mode";
+    }
+};
+toolbar.insertBefore(modeBtn, undoBtn);
+
+// Redraw all boxes
 function redrawBoxes() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    currentBoxes.forEach(b => {
-        const p1 = { x: b.bbox[0] / (img.naturalWidth / canvas.width), y: b.bbox[1] / (img.naturalHeight / canvas.height) };
-        const p2 = { x: b.bbox[2] / (img.naturalWidth / canvas.width), y: b.bbox[3] / (img.naturalHeight / canvas.height) };
-        drawBox(p1, p2, b.class_id);
-    });
+    boxes.forEach(b => drawBox(b.bbox, b.class_id));
 }
 
-// Canvas click for two-point box creation
+// Canvas click logic
 canvas.onclick = (e) => {
     const pos = getMousePos(e);
-
-    if (!firstPoint) {
-        firstPoint = pos;
-        return;
-    }
-
-    const secondPoint = pos;
     const scaleX = img.naturalWidth / canvas.width;
     const scaleY = img.naturalHeight / canvas.height;
 
-    const bbox = [
-        firstPoint.x * scaleX,
-        firstPoint.y * scaleY,
-        secondPoint.x * scaleX,
-        secondPoint.y * scaleY
-    ];
+    if (mode === 'delete') {
+        for (let i = boxes.length - 1; i >= 0; i--) {
+            const b = boxes[i];
+            const x1 = b.bbox[0] / scaleX;
+            const y1 = b.bbox[1] / scaleY;
+            const x2 = b.bbox[2] / scaleX;
+            const y2 = b.bbox[3] / scaleY;
 
-    currentBoxes.push({ bbox, class_id: parseInt(classSelect.value) });
-    drawBox(firstPoint, secondPoint, parseInt(classSelect.value));
-    firstPoint = null;
-    undoBtn.disabled = false;
+            if (pos.x >= Math.min(x1, x2) && pos.x <= Math.max(x1, x2) &&
+                pos.y >= Math.min(y1, y2) && pos.y <= Math.max(y1, y2)) {
+                
+                // mark as deleted in undoStack if you want undo
+                undoStack.push(b);
+                boxes.splice(i, 1);
+                redrawBoxes();
+                undoBtn.disabled = undoStack.length === 0;
+                return;
+            }
+        }
+    } else {
+        // Add box logic
+        if (!firstPoint) {
+            firstPoint = pos;
+            return;
+        }
+
+        const secondPoint = pos;
+        const bbox = [
+            firstPoint.x * scaleX,
+            firstPoint.y * scaleY,
+            secondPoint.x * scaleX,
+            secondPoint.y * scaleY
+        ];
+
+        const newBox = { bbox, class_id: parseInt(classSelect.value), editable: true };
+        boxes.push(newBox);
+
+        undoStack.push({ ...newBox, added: true }); // mark as user-added
+        firstPoint = null;
+        redrawBoxes();
+        undoBtn.disabled = false;
+    }
 };
 
-// Undo last box
+// Undo last user-added box
 undoBtn.onclick = () => {
-    if (!currentBoxes.length) return;
-    currentBoxes.pop();
+    if (!undoStack.length) return;
+    const box = undoStack.pop();
+
+    if (box.added) {
+        // Remove user-added box by matching bbox and class_id
+        boxes = boxes.filter(b => 
+            !(b.editable && b.class_id === box.class_id &&
+              b.bbox[0] === box.bbox[0] && b.bbox[1] === box.bbox[1] &&
+              b.bbox[2] === box.bbox[2] && b.bbox[3] === box.bbox[3])
+        );
+    } else {
+        // Restore deleted box
+        boxes.push(box);
+    }
+
     redrawBoxes();
-    undoBtn.disabled = currentBoxes.length === 0;
+    undoBtn.disabled = undoStack.length === 0;
 };
 
 // Submit current corrections
 submitBtn.onclick = () => {
     const item = batchResults[currentIndex];
+    const allBoxes = boxes.map(b => ({
+        bbox: b.bbox,
+        class_id: b.class_id,
+        type: b.class_id === 0 ? "chip" : "void"
+    }));
+
     updates.push({
         image_id: item.image_id,
-        status: currentBoxes.length ? "corrected" : "ok",
-        correction: {
-            chips: currentBoxes.map(c => ({ bbox: c.bbox, class_id: c.class_id }))
-        }
+        status: "final",
+        correction: { chips: allBoxes }
     });
+
     loadImage(++currentIndex);
 };
 
-// Finish batch and send to server
+// Finish batch and send updates to server
 finishBtn.onclick = async () => {
-    await fetch("/batch_correct", {
+    const batchId = batchResults[0].batch_id;
+
+    const res = await fetch(`/correct/batch/${batchId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ batch_id: batchResults[0].batch_id, updates })
+        body: JSON.stringify({ updates })
     });
 
-    window.location.href = `/retrain/${batchResults[0].batch_id}`;
+    if (!res.ok) {
+        alert("Failed to save corrections");
+        return;
+    }
+
+    // Redirect to admin page (retraining will be triggered there)
+    window.location.href = "/admin";
 };
 
 loadImage(currentIndex);
 
+// Go back to batch results
 function goToBatchResults() {
     if (batchResults.length > 0) {
         const batchId = batchResults[0].batch_id;
