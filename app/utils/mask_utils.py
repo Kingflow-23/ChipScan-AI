@@ -80,20 +80,24 @@ def visualize_component_voids(
     image: np.ndarray, component_masks: List[np.ndarray], void_masks: List[np.ndarray]
 ) -> np.ndarray:
     """
-    Draw components in green and voids in red on an image.
+    Draw components in red and voids in yellow on an image.
 
     Returns:
         np.ndarray: annotated image
     """
     annotated = image.copy()
+
+    # Chips = red
     for comp_mask in component_masks:
         contours = mask_to_polygon(comp_mask)
         annotated = draw_polygon_on_image(
-            annotated, contours, color=(0, 255, 0), thickness=2
+            annotated, contours, color=(0, 0, 255), thickness=2
         )
+
+    # Voids = yellow
     for void_mask in void_masks:
         contours = mask_to_polygon(void_mask)
         annotated = draw_polygon_on_image(
-            annotated, contours, color=(0, 0, 255), thickness=2
+            annotated, contours, color=(0, 255, 255), thickness=2
         )
     return annotated
