@@ -5,7 +5,9 @@ from utils.mask_utils import compute_mask_area
 from config import CHIP_CLASS, VOID_CLASS
 
 
-def run_inference_service(image_path: str, conf: float = 0.25) -> dict:
+def run_inference_service(
+    image_path: str, conf: float = 0.25, return_raw=False
+) -> dict:
     results = run_inference(image_path, conf=conf)
     result = results[0]
 
@@ -79,7 +81,7 @@ def run_inference_service(image_path: str, conf: float = 0.25) -> dict:
         else 0.0
     )
 
-    return {
+    metrics_dict = {
         "image": image_path,
         "num_chips": len(chip_entries),
         "num_voids": len(void_masks),
@@ -88,3 +90,8 @@ def run_inference_service(image_path: str, conf: float = 0.25) -> dict:
         "void_rate": global_void_rate,
         "chips": chips_metrics,
     }
+
+    if return_raw:
+        return metrics_dict, result  # return both metrics and YOLO result
+
+    return metrics_dict

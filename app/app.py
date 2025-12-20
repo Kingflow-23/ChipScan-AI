@@ -10,7 +10,7 @@ from flask import Flask, request, jsonify, render_template
 from services.inference import run_inference_service
 from services.correction import correct_segmentation_service
 from services.retrain import start_retraining
-from utils.sam_model import load_sam_model
+from utils.sam_model import load_sam_model, initialize_predictor
 
 from config import UPLOAD_DIR, RESULT_DIR, T_MODEL_PATH, RESULT_JSON_DIR
 
@@ -28,7 +28,7 @@ RESULT_JSON_DIR.mkdir(parents=True, exist_ok=True)
 model = YOLO(str(T_MODEL_PATH))
 
 # Load SAM predictor once
-_sam_predictor = load_sam_model()
+_sam_predictor = initialize_predictor(load_sam_model())
 
 # ---------------------------------------------------------------------------
 # Routes – Pages
@@ -80,16 +80,12 @@ def predict():
         # -------------------------------
         # Inference
         # -------------------------------
-        result = run_inference_service(str(image_path))
+        metrics, yolo_result = run_inference_service(str(image_path), return_raw=True)
 
         # -------------------------------
         # Overlay generation
         # -------------------------------
-        yolo_results = model.predict(
-            source=str(image_path), task="segment", conf=0.25, save=False
-        )
-
-        overlay = yolo_results[0].plot()
+        overlay = yolo_result.plot()
         overlay_path = RESULT_DIR / f"{image_id}_overlay{ext}"
         cv2.imwrite(str(overlay_path), cv2.cvtColor(overlay, cv2.COLOR_RGB2BGR))
 
@@ -99,12 +95,7 @@ def predict():
             "image_id": image_id,
             "image_url": f"/static/uploads/{image_path.name}",
             "overlay_url": f"/static/results/{overlay_path.name}",
-            "num_chips": result["num_chips"],
-            "num_voids": result["num_voids"],
-            "chip_area": result["chip_area"],
-            "void_area": result["void_area"],
-            "global_void_rate": result["void_rate"],
-            "chips": result["chips"],
+            **metrics,
         }
 
         # Save per-image JSON (still useful for correction)
