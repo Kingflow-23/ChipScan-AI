@@ -3,8 +3,9 @@ import glob
 import numpy as np
 from pathlib import Path
 
-from utils.sam_model import load_sam_model
 from utils.sam_segmentation import segment_with_sam
+from utils.mask_utils import visualize_component_voids
+
 from config import UPLOAD_DIR, RESULT_DIR, LABELS_DIR
 
 # Internal singleton for SAM predictor
@@ -13,8 +14,6 @@ _sam_predictor = None
 
 def get_sam_predictor():
     global _sam_predictor
-    if _sam_predictor is None:
-        _sam_predictor = load_sam_model()  # load once
     return _sam_predictor
 
 
@@ -32,7 +31,7 @@ def find_image_path(image_id: str) -> Path:
 
 
 def correct_segmentation_service(
-    image_id: str, bounding_box: list, class_id: int
+    image_id: str, bounding_box: list, class_id: int, predictor
 ) -> dict:
     """
     Refine YOLO prediction using SAM, save overlay, mask, and YOLO label.
@@ -52,16 +51,16 @@ def correct_segmentation_service(
 
     # --- Locate image ---
     image_path = find_image_path(image_id)
+    RESULT_DIR.mkdir(parents=True, exist_ok=True)
+    LABELS_DIR.mkdir(parents=True, exist_ok=True)
+
     overlay_path = RESULT_DIR / f"{image_path.stem}_overlay{image_path.suffix}"
     mask_path = RESULT_DIR / f"{image_path.stem}_corrected_mask.npy"
-    yolo_label_path = LABELS_DIR / f"{image_path.stem}.txt"  # <-- use LABELS_DIR
+    yolo_label_path = LABELS_DIR / f"{image_path.stem}.txt"
 
     # --- Load image ---
     image = cv2.imread(str(image_path))
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-    # --- Load predictor once ---
-    predictor = get_sam_predictor()
 
     # --- SAM segmentation ---
     masks = segment_with_sam(
@@ -71,15 +70,17 @@ def correct_segmentation_service(
     )
     mask = masks[0].astype(np.uint8)
 
-    # --- Overlay for UI ---
-    overlay = image.copy()
-    color = (0, 255, 0) if class_id == 0 else (0, 0, 255)
-    overlay[mask > 0] = cv2.addWeighted(
-        overlay[mask > 0], 0.5, np.array(color, dtype=np.uint8), 0.5, 0
-    )
+    # --- Overlay using standardized function ---
+    if class_id == 0:
+        component_masks = [mask]
+        void_masks = []
+    else:
+        component_masks = []
+        void_masks = [mask]
+
+    overlay = visualize_component_voids(image, component_masks, void_masks)
 
     # Save overlay and mask
-    RESULT_DIR.mkdir(parents=True, exist_ok=True)
     cv2.imwrite(str(overlay_path), overlay)
     np.save(str(mask_path), mask)
 
@@ -98,8 +99,7 @@ def correct_segmentation_service(
         )
 
     # Save YOLO label file in LABELS_DIR
-    LABELS_DIR.mkdir(parents=True, exist_ok=True)
-    with open(yolo_label_path, "w") as f:
+    with open(yolo_label_path, "a") as f:
         f.write("\n".join(label_lines))
 
     return {
