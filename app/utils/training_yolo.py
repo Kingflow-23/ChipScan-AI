@@ -7,9 +7,9 @@ from datetime import datetime
 from config import *
 
 
-def train_model(resume=False):
+def train_model(retrain=False):
     # === Model Selection ===
-    base_model = NT_MODEL_PATH if not resume else T_MODEL_PATH
+    base_model = NT_MODEL_PATH if not retrain else T_MODEL_PATH
     model = YOLO(str(base_model))
 
     # === Dataset Config ===
@@ -20,9 +20,9 @@ def train_model(resume=False):
     run_name = f"yolo11s_seg_{timestamp}"
 
     # === Set epochs depending on whether it's incremental retraining ===
-    num_epochs = 100 if not resume else 30  # 100 for full, 30 for active learning
+    num_epochs = 100 if not retrain else 30  # 100 for full, 30 for active learning
 
-    if resume:
+    if retrain:
         for label_file in LABELS_DIR.glob("*.txt"):
             image_id = label_file.stem
             # Find the corresponding image
@@ -45,7 +45,7 @@ def train_model(resume=False):
         batch=8,
         workers=4,
         task="segment",
-        resume=resume,
+        resume=False,
         device="cuda" if torch.cuda.is_available() else "cpu",
     )
 
@@ -62,4 +62,4 @@ def train_model(resume=False):
 
 
 if __name__ == "__main__":
-    train_model(resume=False)
+    train_model(retrain=False)
