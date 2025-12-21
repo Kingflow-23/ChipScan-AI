@@ -71,6 +71,37 @@
             margin-top: 20px;
             font-weight: bold;
         }
+
+        /* Spinner overlay */
+        #spinnerOverlay {
+            display: none;  /* hidden initially */
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: white;
+            font-size: 22px;
+            text-shadow: 1px 1px 4px black;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 6px solid rgba(255,255,255,0.3);
+            border-top: 6px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
     </style>
 </head>
 <body>
@@ -84,12 +115,20 @@
     <p id="status"></p>
 </div>
 
+<!-- Spinner Overlay -->
+<div id="spinnerOverlay">
+    <div class="spinner"></div>
+    <div>Retraining in progress…</div>
+</div>
+
 <script>
 async function retrain() {
     const btn = document.getElementById("retrainBtn");
     const status = document.getElementById("status");
+    const spinner = document.getElementById("spinnerOverlay");
 
     btn.disabled = true;
+    spinner.style.display = "flex";   // show spinner
     status.innerText = "Starting retraining...";
 
     try {
@@ -99,6 +138,7 @@ async function retrain() {
     } catch (err) {
         status.innerText = "Error: " + err.message;
     } finally {
+        spinner.style.display = "none";  // hide spinner
         btn.disabled = false;
     }
 }
