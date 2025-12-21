@@ -5,7 +5,6 @@ import logging
 import threading
 from pathlib import Path
 
-from ultralytics import YOLO
 from flask import Flask, request, jsonify, render_template
 
 from services.inference import run_inference_service
@@ -154,15 +153,24 @@ def correct_batch(batch_id):
         return jsonify({"error": "No corrections submitted"}), 400
 
     logger.info(f"Processing {len(updates)} corrections for batch {batch_id}")
+
     with open(batch_path, "r") as f:
         batch_results = json.load(f)
 
     for update in updates:
         image_id = update["image_id"]
-        annotations = update.get("correction", {}).get("chips", [])
-        if not annotations:
+        chips = update.get("correction", {}).get("chips", [])
+        voids = update.get("correction", {}).get("voids", [])
+
+        all_annotations = chips + voids
+
+        if not all_annotations:
             logger.warning(f"No annotations for image {image_id}, skipping")
             continue
+
+        # Collect all bounding boxes and class_ids
+        bounding_boxes = [ann["bbox"] for ann in all_annotations]
+        class_ids = [ann["class_id"] for ann in all_annotations]
 
         # Find the image JSON
         json_path = RESULT_JSON_DIR / f"{image_id}.json"
@@ -175,19 +183,44 @@ def correct_batch(batch_id):
 
         info["annotations"] = []
 
-        for ann in annotations:
-            bbox = ann["bbox"]
-            class_id = ann["class_id"]
-            try:
-                result = correct_segmentation_service(
-                    image_id=image_id,
-                    bounding_box=bbox,
-                    class_id=class_id,
-                    predictor=_sam_predictor,
-                )
+        try:
+            # Call SAM correction once per image with all boxes
+            result = correct_segmentation_service(
+                image_id=image_id,
+                bounding_boxes=bounding_boxes,
+                class_ids=class_ids,
+                predictor=_sam_predictor,
+            )
+
+            # Generate YOLO labels for all contours at once
+            h, w = result["mask_shape"]
+            yolo_lines = []
+
+            for obj in result["objects"]:
+                class_id = obj["class_id"]
+
+                for cnt in obj["contours"]:
+                    if len(cnt) < 3:
+                        continue  # need at least 3 points for a polygon
+
+                    polygon = []
+                    for pt in cnt.squeeze():
+                        x = pt[0] / w
+                        y = pt[1] / h
+                        polygon.append(f"{x:.6f}")
+                        polygon.append(f"{y:.6f}")
+
+                    yolo_lines.append(f"{class_id} " + " ".join(polygon))
+
+            # Write YOLO label file once
+            with open(result["yolo_label_path"], "w") as f:
+                f.write("\n".join(yolo_lines))
+
+            # Update annotations in JSON
+            for ann, bbox in zip(all_annotations, bounding_boxes):
                 info["annotations"].append(
                     {
-                        "class_id": class_id,
+                        "class_id": ann["class_id"],
                         "bbox": bbox,
                         "source": "final",
                         "mask_path": result["mask_path"],
@@ -195,8 +228,9 @@ def correct_batch(batch_id):
                         "yolo_label_path": result["yolo_label_path"],
                     }
                 )
-            except Exception as e:
-                logger.error(f"SAM correction failed for {image_id}, bbox {bbox}: {e}")
+
+        except Exception as e:
+            logger.error(f"SAM correction failed for {image_id}: {e}")
 
         # Save updated JSON
         with open(json_path, "w") as f:
