@@ -31,7 +31,7 @@ def find_image_path(image_id: str) -> Path:
 
 
 def correct_segmentation_service(
-    image_id: str, bounding_box: list, class_id: int, predictor
+    image_id: str, bounding_boxes: list, class_ids: list, predictor
 ) -> dict:
     """
     Refine YOLO prediction using SAM, save overlay, mask, and YOLO label.
@@ -47,6 +47,7 @@ def correct_segmentation_service(
             - overlay_path: path to overlay image
             - yolo_label_path: path to YOLO segmentation label
             - class_id
+            - contours: list of polygon contours
     """
 
     # --- Locate image ---
@@ -54,7 +55,9 @@ def correct_segmentation_service(
     RESULT_DIR.mkdir(parents=True, exist_ok=True)
     LABELS_DIR.mkdir(parents=True, exist_ok=True)
 
-    overlay_path = RESULT_DIR / f"{image_path.stem}_overlay{image_path.suffix}"
+    overlay_path = (
+        RESULT_DIR / f"{image_path.stem}_overlay_corrected{image_path.suffix}"
+    )
     mask_path = RESULT_DIR / f"{image_path.stem}_corrected_mask.npy"
     yolo_label_path = LABELS_DIR / f"{image_path.stem}.txt"
 
@@ -62,49 +65,55 @@ def correct_segmentation_service(
     image = cv2.imread(str(image_path))
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-    # --- SAM segmentation ---
-    masks = segment_with_sam(
-        image=image_rgb,
-        bounding_boxes=[bounding_box],
-        predictor=predictor,
-    )
-    mask = masks[0].astype(np.uint8)
+    # Initialize empty lists
+    component_masks = []
+    void_masks = []
 
-    # --- Overlay using standardized function ---
-    if class_id == 0:
-        component_masks = [mask]
-        void_masks = []
-    else:
-        component_masks = []
-        void_masks = [mask]
+    object_contours = []
 
-    overlay = visualize_component_voids(image, component_masks, void_masks)
-
-    # Save overlay and mask
-    cv2.imwrite(str(overlay_path), overlay)
-    np.save(str(mask_path), mask)
-
-    # --- Convert mask to YOLO segmentation label ---
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    h, w = mask.shape
-    label_lines = []
-    for cnt in contours:
-        x, y, bw, bh = cv2.boundingRect(cnt)
-        x_center = (x + bw / 2) / w
-        y_center = (y + bh / 2) / h
-        width = bw / w
-        height = bh / h
-        label_lines.append(
-            f"{class_id} {x_center:.6f} {y_center:.6f} {width:.6f} {height:.6f}"
+    # Loop through all boxes and generate SAM masks
+    for bbox, class_id in zip(bounding_boxes, class_ids):
+        masks = segment_with_sam(
+            image=image_rgb, bounding_boxes=[bbox], predictor=predictor
         )
 
-    # Save YOLO label file in LABELS_DIR
-    with open(yolo_label_path, "a") as f:
-        f.write("\n".join(label_lines))
+        if not masks:
+            continue
+        mask = masks[0].astype(np.uint8)
+
+        if class_id == 0:
+            component_masks.append(mask)
+        else:
+            void_masks.append(mask)
+
+        # --- Extract contours for YOLO labels ---
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        object_contours.append({"class_id": class_id, "contours": contours})
+
+    # Merge all masks into one overlay
+    overlay = visualize_component_voids(image, component_masks, void_masks)
+
+    # Save overlay and individual masks
+    cv2.imwrite(str(overlay_path), overlay)
+
+    combined_mask = None
+
+    # Combine all masks into one
+    if component_masks or void_masks:
+        combined_mask = np.zeros_like(
+            component_masks[0] if component_masks else void_masks[0]
+        )
+        for m in component_masks + void_masks:
+            combined_mask = np.maximum(combined_mask, m)
+        np.save(str(mask_path), combined_mask)
 
     return {
-        "mask_path": str(mask_path),
+        "mask_path": str(mask_path) if combined_mask is not None else None,
         "overlay_path": str(overlay_path),
         "yolo_label_path": str(yolo_label_path),
-        "class_id": class_id,
+        "objects": object_contours,
+        "mask_shape": (
+            combined_mask.shape if combined_mask is not None else image.shape[:2]
+        ),
     }
