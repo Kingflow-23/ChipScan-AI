@@ -147,6 +147,20 @@
         #finish-btn:hover {
             background-color: #732d91;
         }
+
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 5px solid rgba(255,255,255,0.3);
+            border-top: 5px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 
@@ -307,6 +321,16 @@ function boxesEqual(a, b) {
     return JSON.stringify(a) === JSON.stringify(b);
 }
 
+function showLoading() {
+    const overlay = document.getElementById("loading-overlay");
+    overlay.style.display = "flex";   // only now show it as flex
+}
+
+function hideLoading() {
+    const overlay = document.getElementById("loading-overlay");
+    overlay.style.display = "none";   // hide it again
+}
+
 // Canvas click logic
 canvas.onclick = (e) => {
     const pos = getMousePos(e);
@@ -429,22 +453,30 @@ finishBtn.onclick = async () => {
         document.getElementById("completion-section").appendChild(msg);
         return;
     }
-    
-    const batchId = batchResults[0].batch_id;
 
-    const res = await fetch(`/correct/batch/${batchId}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ updates })
-    });
+    showLoading();
 
-    if (!res.ok) {
-        alert("Failed to save corrections");
-        return;
+    try {
+        const batchId = batchResults[0].batch_id;
+
+        const res = await fetch(`/correct/batch/${batchId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ updates })
+        });
+
+        if (!res.ok) {
+            alert("Failed to save corrections");
+            return;
+        }
+
+        window.location.href = "/admin";
+
+    } catch (err) {
+        hideLoading();
+        alert("An error occurred while saving corrections.");
+        console.error(err);
     }
-
-    // Redirect to admin page (retraining will be triggered there)
-    window.location.href = "/admin";
 };
 
 loadImage(currentIndex);
@@ -459,6 +491,25 @@ function goToBatchResults() {
     }
 }
 </script>
+
+<div id="loading-overlay" style="
+    display: none;   /* hidden initially */
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 22px;
+    text-shadow:1px 1px 4px black;
+    flex-direction: column;  /* optional if text below spinner */
+">
+    <div>
+        <div style="margin-bottom:15px;">Applying corrections…</div>
+        <div class="spinner"></div>
+    </div>
+</div>
 
 </body>
 </html>
