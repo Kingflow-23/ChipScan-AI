@@ -253,9 +253,9 @@ def correct_batch(batch_id):
 retraining_status = {
     "running": False,
     "error": None,
-    "progress": 0,        # 0-100 %
-    "current_epoch": 0,   # current epoch number
-    "total_epochs": 0
+    "progress": 0,  # 0-100 %
+    "current_epoch": 0,  # current epoch number
+    "total_epochs": 0,
 }
 
 

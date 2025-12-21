@@ -69,7 +69,7 @@ def train_model(retrain=False, status_dict=None):
         print(f"\n✅ Training complete. Model copied to: {T_MODEL_PATH}")
     else:
         raise FileNotFoundError("❌ best.pt not found after training")
-    
+
     if status_dict is not None:
         status_dict["running"] = False
         status_dict["progress"] = 100
