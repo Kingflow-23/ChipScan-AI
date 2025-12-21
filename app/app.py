@@ -12,7 +12,7 @@ from services.correction import correct_segmentation_service
 from services.retrain import start_retraining
 from utils.sam_model import load_sam_model, initialize_predictor
 
-from config import UPLOAD_DIR, RESULT_DIR, RESULT_JSON_DIR
+from config import *
 
 # ---------------------------------------------------------------------------
 # Logging setup
@@ -264,7 +264,7 @@ def retrain():
         try:
             retraining_status["running"] = True
             retraining_status["error"] = None
-            start_retraining(resume=True)
+            start_retraining(retrain=True)
         except Exception as e:
             retraining_status["error"] = str(e)
             logger.error(f"Retraining failed: {e}")
