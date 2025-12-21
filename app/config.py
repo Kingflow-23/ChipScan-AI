@@ -6,6 +6,10 @@ VOID_CLASS = 1
 BASE_DIR = Path(__file__).resolve().parent
 MODEL_DIR = BASE_DIR.parent / "model"
 DATA_DIR = BASE_DIR.parent / "app" / "dataset"
+
+TRAIN_IMAGE_DATA_DIR = DATA_DIR / "train" / "images"
+TRAIN_LABELS_DATA_DIR = DATA_DIR / "train" / "labels"
+
 RUNS_DIR = BASE_DIR.parent / "runs"
 
 UPLOAD_DIR = BASE_DIR / "static" / "uploads"
