@@ -206,6 +206,9 @@ let currentIndex = 0;
 let boxes = [];          // all boxes for current image
 let undoStack = [];      // only for user-added boxes
 let updates = [];
+let originalBoxes = [];
+let imageModified = false;
+let batchModified = false;
 
 const img = document.getElementById("image");
 const canvas = document.getElementById("overlay-canvas");
@@ -248,10 +251,14 @@ function loadImage(index) {
 
     boxes = [];
     undoStack = [];
+    imageModified = false;
 
     // Convert model-predicted boxes into editable=false boxes
     item.chips?.forEach(chip => boxes.push({ bbox: chip.bbox, class_id: 0, editable: false }));
     item.voids?.forEach(voidBox => boxes.push({ bbox: voidBox.bbox, class_id: 1, editable: false }));
+
+    // Snapshot original state
+    originalBoxes = JSON.parse(JSON.stringify(boxes));
 
     redrawBoxes();
 
@@ -296,6 +303,10 @@ function redrawBoxes() {
     boxes.forEach(b => drawBox(b.bbox, b.class_id));
 }
 
+function boxesEqual(a, b) {
+    return JSON.stringify(a) === JSON.stringify(b);
+}
+
 // Canvas click logic
 canvas.onclick = (e) => {
     const pos = getMousePos(e);
@@ -316,6 +327,7 @@ canvas.onclick = (e) => {
                 // mark as deleted in undoStack if you want undo
                 undoStack.push(b);
                 boxes.splice(i, 1);
+                imageModified = true;
                 redrawBoxes();
                 undoBtn.disabled = undoStack.length === 0;
                 return;
@@ -338,8 +350,10 @@ canvas.onclick = (e) => {
 
         const newBox = { bbox, class_id: parseInt(classSelect.value), editable: true };
         boxes.push(newBox);
-
         undoStack.push({ ...newBox, added: true }); // mark as user-added
+
+        imageModified = true;
+        
         firstPoint = null;
         redrawBoxes();
         undoBtn.disabled = false;
@@ -365,11 +379,21 @@ undoBtn.onclick = () => {
 
     redrawBoxes();
     undoBtn.disabled = undoStack.length === 0;
+    imageModified = !boxesEqual(boxes, originalBoxes);
 };
 
 // Submit current corrections
 submitBtn.onclick = () => {
     const item = batchResults[currentIndex];
+
+    // If nothing changed, skip backend
+    if (!imageModified) {
+        loadImage(++currentIndex);
+        return;
+    }
+
+    batchModified = true;
+
     const allBoxes = boxes.map(b => ({
         bbox: b.bbox,
         class_id: b.class_id,
@@ -390,6 +414,22 @@ submitBtn.onclick = () => {
 
 // Finish batch and send updates to server
 finishBtn.onclick = async () => {
+
+    // If no image in the batch was modified
+    if (!batchModified) {
+        finishBtn.style.display = "none";
+
+        const msg = document.createElement("p");
+        msg.textContent = "No changes were made. Retraining is not required.";
+        msg.style.color = "white";
+        msg.style.fontSize = "18px";
+        msg.style.textShadow = "1px 1px 4px black";
+        msg.style.marginTop = "20px";
+
+        document.getElementById("completion-section").appendChild(msg);
+        return;
+    }
+    
     const batchId = batchResults[0].batch_id;
 
     const res = await fetch(`/correct/batch/${batchId}`, {
