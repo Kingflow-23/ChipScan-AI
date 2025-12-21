@@ -250,12 +250,37 @@ def correct_batch(batch_id):
     return jsonify({"status": "corrections_saved"})
 
 
+retraining_status = {"running": False, "error": None}
+
+
 @app.route("/retrain", methods=["POST"])
 def retrain():
-    logger.info("Retraining requested, starting in background thread")
-    thread = threading.Thread(target=lambda: start_retraining(resume=True), daemon=True)
+    global retraining_status
+
+    if retraining_status["running"]:
+        return jsonify({"status": "already_running"})
+
+    def run():
+        try:
+            retraining_status["running"] = True
+            retraining_status["error"] = None
+            start_retraining(resume=True)
+        except Exception as e:
+            retraining_status["error"] = str(e)
+            logger.error(f"Retraining failed: {e}")
+        finally:
+            retraining_status["running"] = False
+
+    thread = threading.Thread(target=run, daemon=True)
     thread.start()
-    return jsonify({"status": "retraining_started"})
+
+    logger.info("Retraining started in background")
+    return jsonify({"status": "started"})
+
+
+@app.route("/retrain/status", methods=["GET"])
+def retrain_status():
+    return jsonify(retraining_status)
 
 
 # ---------------------------------------------------------------------------
@@ -264,4 +289,4 @@ def retrain():
 
 if __name__ == "__main__":
     logger.info("Starting Flask app")
-    app.run(debug=True)
+    app.run(debug=True, use_reloader=False)

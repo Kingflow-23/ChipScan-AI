@@ -1,15 +1,14 @@
-import threading
-
+import logging
 from utils.training_yolo import train_model
+
+logger = logging.getLogger(__name__)
 
 
 def start_retraining(resume: bool = True):
     """
-    Starts YOLO retraining in a background thread.
+    Runs YOLO retraining synchronously.
+    Threading is handled by the Flask route.
     """
-    thread = threading.Thread(
-        target=train_model,
-        kwargs={"resume": resume},
-        daemon=True,
-    )
-    thread.start()
+    logger.info("Training started")
+    train_model(resume=resume)
+    logger.info("Training finished")
