@@ -1,9 +1,10 @@
 import shutil
 import torch
 
-from config import *
 from ultralytics import YOLO
 from datetime import datetime
+
+from config import *
 
 
 def train_model(resume=False):
@@ -19,7 +20,20 @@ def train_model(resume=False):
     run_name = f"yolo11s_seg_{timestamp}"
 
     # === Set epochs depending on whether it's incremental retraining ===
-    num_epochs = 100 if not resume else 15  # 100 for full, 15 for active learning
+    num_epochs = 100 if not resume else 30  # 100 for full, 30 for active learning
+
+    if resume:
+        for label_file in LABELS_DIR.glob("*.txt"):
+            image_id = label_file.stem
+            # Find the corresponding image
+            possible_images = list(UPLOAD_DIR.glob(f"{image_id}.*"))
+            if not possible_images:
+                continue
+            image_file = possible_images[0]
+
+            # Copy to dataset train folders
+            shutil.copy(image_file, TRAIN_IMAGE_DATA_DIR / image_file.name)
+            shutil.copy(label_file, TRAIN_LABELS_DATA_DIR / label_file.name)
 
     # === Training ===
     model.train(
