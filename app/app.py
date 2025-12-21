@@ -250,13 +250,7 @@ def correct_batch(batch_id):
     return jsonify({"status": "corrections_saved"})
 
 
-retraining_status = {
-    "running": False,
-    "error": None,
-    "progress": 0,  # 0-100 %
-    "current_epoch": 0,  # current epoch number
-    "total_epochs": 0,
-}
+retraining_status = {"running": False, "error": None}
 
 
 @app.route("/retrain", methods=["POST"])
@@ -267,11 +261,15 @@ def retrain():
         return jsonify({"status": "already_running"})
 
     def run():
+        retraining_status["running"] = True
+        retraining_status["error"] = None
         try:
-            start_retraining(retrain=True, retraining_status=retraining_status)
+            start_retraining(retrain=True)
         except Exception as e:
             retraining_status["error"] = str(e)
             logger.error(f"Retraining failed: {e}")
+        finally:
+            retraining_status["running"] = False
 
     thread = threading.Thread(target=run, daemon=True)
     thread.start()

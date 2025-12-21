@@ -145,10 +145,7 @@ async function retrain() {
     retrainPoll = setInterval(async () => {
         const res = await fetch("/retrain/status");
         const data = await res.json();
-
-        // Update progress dynamically
-        status.innerText = `Retraining: Epoch ${data.current_epoch}/${data.total_epochs} (${data.progress}%)`;
-
+        
         if (!data.running) {
             clearInterval(retrainPoll);
             retrainPoll = null;
