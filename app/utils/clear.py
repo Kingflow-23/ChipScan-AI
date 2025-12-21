@@ -11,8 +11,12 @@ def clear_static_folder():
     folders = [RESULT_DIR, UPLOAD_DIR, LABELS_DIR, RESULT_JSON_DIR]
 
     for folder in folders:
+        print(f"Clearing folder: {folder}")
         for item in folder.iterdir():
+            print(f" - Deleting: {item}")
             if item.is_file() and item.name != ".gitkeep":
                 item.unlink()
             elif item.is_dir():
                 shutil.rmtree(item)
+
+clear_static_folder()
