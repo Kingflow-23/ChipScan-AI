@@ -22,8 +22,3 @@ def show_results(results):
     plt.imshow(annotated)
     plt.axis("off")
     plt.show()
-
-
-# print(run_inference(r"C:\Users\flori\OneDrive - aivancity\4th year\Deployment & Maintenance of AI Models\Group Work\pack\pack\app\dataset\valid\images\06_jpg.rf.622bf1347fb91bb265c341fe98cf35a6.jpg"))
-
-# show_results(run_inference(r"C:\Users\flori\OneDrive - aivancity\4th year\Deployment & Maintenance of AI Models\Group Work\pack\pack\app\dataset\valid\images\06_jpg.rf.622bf1347fb91bb265c341fe98cf35a6.jpg"))
