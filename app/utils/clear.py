@@ -19,4 +19,5 @@ def clear_static_folder():
             elif item.is_dir():
                 shutil.rmtree(item)
 
+
 clear_static_folder()
