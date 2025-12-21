@@ -379,7 +379,10 @@ submitBtn.onclick = () => {
     updates.push({
         image_id: item.image_id,
         status: "final",
-        correction: { chips: allBoxes }
+        correction: { 
+            chips: allBoxes.filter(b => b.class_id === 0),
+            voids: allBoxes.filter(b => b.class_id === 1) 
+        }
     });
 
     loadImage(++currentIndex);
