@@ -17,7 +17,7 @@ RESULT_DIR = BASE_DIR / "static" / "results"
 RESULT_JSON_DIR = BASE_DIR / "static" / "results_json"
 LABELS_DIR = BASE_DIR / "static" / "labels"
 
-MODEL_NAME = "yolo11l-seg"
+MODEL_NAME = "yolo11m-seg"
 SAM_MODEL_NAME = "sam_vit_h"
 
 NT_MODEL_PATH = MODEL_DIR / f"{MODEL_NAME}.pt"
