@@ -79,7 +79,6 @@
             inset: 0;
             background: rgba(0,0,0,0.6);
             z-index: 9999;
-            display: flex;
             align-items: center;
             justify-content: center;
             flex-direction: column;
@@ -122,25 +121,42 @@
 </div>
 
 <script>
+let retrainPoll = null;
+
 async function retrain() {
+    if (retrainPoll) return;
+
     const btn = document.getElementById("retrainBtn");
     const status = document.getElementById("status");
     const spinner = document.getElementById("spinnerOverlay");
 
     btn.disabled = true;
-    spinner.style.display = "flex";   // show spinner
-    status.innerText = "Starting retraining...";
+    spinner.style.display = "flex";
+    status.innerText = "Retraining started...";
 
-    try {
-        const res = await fetch("/retrain", { method: "POST" });
-        const data = await res.json();
-        status.innerText = data.status || "Retraining triggered";
-    } catch (err) {
-        status.innerText = "Error: " + err.message;
-    } finally {
-        spinner.style.display = "none";  // hide spinner
-        btn.disabled = false;
+    const startRes = await fetch("/retrain", { method: "POST" });
+    const startData = await startRes.json();
+
+    if (startData.status === "already_running") {
+        status.innerText = "Retraining is already running";
     }
+
+    retrainPoll = setInterval(async () => {
+        const res = await fetch("/retrain/status");
+        const data = await res.json();
+
+        if (!data.running) {
+            clearInterval(retrainPoll);
+            retrainPoll = null;
+
+            spinner.style.display = "none";
+            btn.disabled = false;
+
+            status.innerText = data.error
+                ? "Error: " + data.error
+                : "Retraining completed successfully";
+        }
+    }, 2000);
 }
 
 function goBack() {
