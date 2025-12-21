@@ -7,7 +7,7 @@ from datetime import datetime
 from config import *
 
 
-def train_model(retrain=False):
+def train_model(retrain=False, status_dict=None):
     # === Model Selection ===
     base_model = NT_MODEL_PATH if not retrain else T_MODEL_PATH
     model = YOLO(str(base_model))
@@ -35,6 +35,17 @@ def train_model(retrain=False):
             shutil.copy(image_file, TRAIN_IMAGE_DATA_DIR / image_file.name)
             shutil.copy(label_file, TRAIN_LABELS_DATA_DIR / label_file.name)
 
+    if status_dict is not None:
+        status_dict["running"] = True
+        status_dict["progress"] = 0
+        status_dict["current_epoch"] = 0
+        status_dict["total_epochs"] = num_epochs
+
+    def epoch_callback(epoch, results, model):
+        if status_dict is not None:
+            status_dict["current_epoch"] = epoch + 1
+            status_dict["progress"] = int(((epoch + 1) / num_epochs) * 100)
+
     # === Training ===
     model.train(
         data=str(data_config),
@@ -47,6 +58,7 @@ def train_model(retrain=False):
         task="segment",
         resume=False,
         device="cuda" if torch.cuda.is_available() else "cpu",
+        callbacks=[epoch_callback],
     )
 
     # === Save final model safely ===
@@ -57,6 +69,10 @@ def train_model(retrain=False):
         print(f"\n✅ Training complete. Model copied to: {T_MODEL_PATH}")
     else:
         raise FileNotFoundError("❌ best.pt not found after training")
+    
+    if status_dict is not None:
+        status_dict["running"] = False
+        status_dict["progress"] = 100
 
 
 if __name__ == "__main__":

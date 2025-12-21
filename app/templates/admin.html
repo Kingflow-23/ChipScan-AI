@@ -139,11 +139,15 @@ async function retrain() {
 
     if (startData.status === "already_running") {
         status.innerText = "Retraining is already running";
+        return;
     }
 
     retrainPoll = setInterval(async () => {
         const res = await fetch("/retrain/status");
         const data = await res.json();
+
+        // Update progress dynamically
+        status.innerText = `Retraining: Epoch ${data.current_epoch}/${data.total_epochs} (${data.progress}%)`;
 
         if (!data.running) {
             clearInterval(retrainPoll);
@@ -156,7 +160,7 @@ async function retrain() {
                 ? "Error: " + data.error
                 : "Retraining completed successfully";
         }
-    }, 60000);
+    }, 45000);
 }
 
 function goBack() {
