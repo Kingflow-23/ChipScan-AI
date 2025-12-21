@@ -17,10 +17,10 @@ def train_model(retrain=False):
 
     # === Unique run name with datetime ===
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_name = f"yolo11s_seg_{timestamp}"
+    run_name = f"{MODEL_NAME}_{timestamp}"
 
     # === Set epochs depending on whether it's incremental retraining ===
-    num_epochs = 100 if not retrain else 30  # 100 for full, 30 for active learning
+    num_epochs = 100 if not retrain else 50  # 100 for full, 50 for active learning
 
     if retrain:
         for label_file in LABELS_DIR.glob("*.txt"):
@@ -52,11 +52,9 @@ def train_model(retrain=False):
     # === Save final model safely ===
     best_model_path = RUNS_DIR / run_name / "weights" / "best.pt"
 
-    trained_model_path = MODEL_DIR / "yolo11s-seg-trained.pt"
-
     if best_model_path.exists():
-        shutil.copy(best_model_path, trained_model_path)
-        print(f"\n✅ Training complete. Model copied to: {trained_model_path}")
+        shutil.copy(best_model_path, T_MODEL_PATH)
+        print(f"\n✅ Training complete. Model copied to: {T_MODEL_PATH}")
     else:
         raise FileNotFoundError("❌ best.pt not found after training")
 
