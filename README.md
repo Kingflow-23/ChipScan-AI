@@ -1,49 +1,46 @@
 # Interactive Segmentation Correction with SAM and Active Learning
 
-## Overview
-
-This project implements an **interactive human-in-the-loop correction system** for object detection and segmentation models.  
-It is designed to **improve model performance over time** by allowing users to correct only incorrect predictions and feed those corrections back into a retraining pipeline.
-
-The system combines:
-- A pre-trained detection/segmentation model
-- A web-based batch correction interface
-- Meta AI’s **Segment Anything Model (SAM)** for precise mask refinement
-- An **active learning loop** for iterative retraining
-
-The guiding principle is:
-
-> **Correct only what is wrong — keep what is already correct.**
-
----
-
-## Dataset
-
-### Source
-
-The initial dataset used in this project comes from **Roboflow**.
-
-- Images were **manually labeled** using Roboflow’s annotation tools
-- Labels include object classes such as:
-  - `Chip`
-  - `Void`
-- Annotations were exported in a standard detection/segmentation format
-
-This manually labeled dataset serves as the **baseline training data** for the first model version.
+## Table of Contents
+1. [Project Overview](#project-overview)  
+2. [Motivation](#motivation)  
+3. [System Architecture](#system-architecture)  
+4. [Dataset](#dataset)  
+5. [Active Learning Workflow](#active-learning-workflow)  
+6. [Segment Anything Model (SAM) Integration](#segment-anything-model-sam-integration)  
+7. [Frontend: Batch Correction Interface](#frontend-batch-correction-interface)  
+8. [Correction Logic](#correction-logic)  
+9. [Data Organization](#data-organization)  
+10. [Retraining Pipeline](#retraining-pipeline)  
+11. [Performance Considerations](#performance-considerations)  
+12. [Limitations and Future Work](#limitations-and-future-work)  
+13. [Installation and Usage](#installation-and-usage)  
+14. [Acknowledgments](#acknowledgments)  
 
 ---
 
-## Why Active Learning?
+## Project Overview
 
-Manual annotation is expensive and time-consuming.
+This repository implements an **interactive human-in-the-loop correction system** for object detection and segmentation. The goal is to **improve model performance iteratively** using minimal manual labeling by focusing only on incorrect predictions.  
 
-Instead of repeatedly labeling full datasets, this project:
-- Uses an existing trained model
-- Lets the model make predictions on new images
-- Allows users to **correct only prediction errors**
-- Uses those corrections to retrain and improve the model
+Key components:
+- Pre-trained object detection/segmentation model (YOLO)
+- Web-based correction interface
+- **Segment Anything Model (SAM)** for precise mask generation
+- Active learning loop for iterative retraining
 
-This dramatically reduces labeling effort while continuously improving accuracy.
+> Principle: **Correct only what is wrong; preserve what is already correct.**
+
+---
+
+## Motivation
+
+Manual annotation is costly and time-consuming, especially for high-resolution images requiring precise segmentation masks.  
+
+This system addresses this by:
+- Using an initial trained model to generate predictions on new images
+- Allowing users to correct only erroneous regions
+- Leveraging corrections to improve the model iteratively
+- Reducing annotation workload while maintaining high-quality data  
 
 ---
 
@@ -52,76 +49,83 @@ This dramatically reduces labeling effort while continuously improving accuracy.
 ### High-Level Pipeline
 
 1. **Initial Training**
-   - Model trained on Roboflow-labeled dataset
-
+   - Model trained on manually labeled dataset from Roboflow.
 2. **Prediction**
-   - Model generates predictions on new image batches
-   - Visual overlays are saved for review
-
+   - Model predicts objects on new image batches.
+   - Visual overlays are generated for user inspection.
 3. **User Correction**
-   - User reviews predictions in a web UI
-   - Only incorrect regions are corrected
-   - Corrections are provided as bounding boxes
-
+   - Corrections are made through a web-based interface.
 4. **SAM Refinement**
-   - Bounding boxes are passed to SAM
-   - SAM produces high-quality segmentation masks
-
+   - Bounding boxes are refined into precise segmentation masks.
 5. **Feedback Collection**
-   - Corrections are stored as structured metadata
-   - Images with no corrections are marked as valid
-
+   - Metadata and corrections are stored in structured JSON.
 6. **Retraining**
-   - Original predictions + corrections are merged
-   - Dataset is prepared for fine-tuning
-   - Model improves iteratively
+   - Original predictions and corrections are merged.
+   - Model is fine-tuned incrementally.
+   
+This workflow forms a **closed-loop active learning system**.
 
 ---
 
-## Segment Anything Model (SAM)
+## Dataset
 
-### Purpose
+### Source
 
-SAM is used to convert **coarse user input** (bounding boxes) into **precise segmentation masks**.
+The baseline dataset was sourced from **Roboflow**:
+- Images manually labeled with object classes such as:
+  - `Chip`
+  - `Void`
+- Annotations exported in detection/segmentation formats (YOLO-compatible)
 
-This avoids:
-- Manual pixel-level annotation
-- Polygon drawing
-- Mask painting
+### Role in Active Learning
 
-### Implementation Details
+- Baseline data used for initial model training
+- Subsequent corrections expand dataset iteratively
 
-- SAM is loaded **once** at application startup
-- The predictor is reused across all correction requests
-- This avoids repeated model loading and performance issues
+---
 
-SAM is used **only during correction**, not during inference.
+## Active Learning Workflow
+
+Instead of re-labeling entire datasets:
+1. Model predicts on new images
+2. Users review predictions
+3. Only misclassified regions are corrected
+4. Corrections are fed back into the retraining pipeline  
+
+This reduces labeling effort while improving model accuracy over time.
+
+---
+
+## Segment Anything Model (SAM) Integration
+
+SAM is integrated to convert **coarse user bounding boxes** into **high-quality masks**.
+
+### Key Details:
+- SAM loaded once at application startup
+- Predictor reused across all correction requests
+- Reduces the need for manual polygon/mask drawing
+- Improves mask accuracy without increasing annotation burden
+
+**Note:** SAM is applied **only during correction**, not during inference.
 
 ---
 
 ## Frontend: Batch Correction Interface
 
-### User Experience
+### User Interaction
 
-- One image at a time
-- Model prediction overlay shown
-- User draws bounding boxes over incorrect regions only
-- Each box is assigned a class:
-  - **Chip** → Red
-  - **Void** → Yellow
-- Undo supported
-- Submit button advances to the next image
+- Displays one image at a time
+- Shows model prediction overlay
+- Users draw bounding boxes around incorrect regions
+- Each bounding box is assigned a class (`Chip`, `Void`)
+- Undo functionality included
+- Submitting with no corrections indicates the prediction is correct
 
-### Key Design Choice
+### Design Choice
 
-There is **no “Mark as Checked” button**.
-
-- Submitting with **no boxes** means:
-  > “This image is correct.”
-- Submitting with boxes means:
-  > “These regions were incorrect and are corrected.”
-
-This keeps the workflow simple and intuitive.
+- Focused on **minimal user interaction**
+- No “mark as checked” buttons
+- Encourages efficiency and reduces cognitive load
 
 ---
 
@@ -129,16 +133,13 @@ This keeps the workflow simple and intuitive.
 
 ### Relabel-Only-Errors Strategy
 
-The system does **not** assume that unlabeled regions are empty.
-
-Instead:
-- Original model predictions are preserved by default
-- User corrections override specific regions
+- Original model predictions are **preserved by default**
+- User corrections **override only erroneous regions**
 - During retraining:
   - Corrected masks replace incorrect predictions
   - Unmodified predictions remain unchanged
 
-This prevents accidental deletion of valid annotations.
+This ensures **valid annotations are never accidentally removed**.
 
 ---
 
@@ -146,82 +147,82 @@ This prevents accidental deletion of valid annotations.
 
 ### Results Directory
 
-Used only for **visual outputs**:
-- Model prediction overlays
-- Corrected overlays
-- SAM-generated masks (`.npy`)
+- Stores visual outputs:
+  - Model overlays
+  - Corrected overlays
+  - SAM-generated masks (`.npy` files)
 
 ### Correction Metadata
 
-Stored separately as structured JSON:
+Stored separately in JSON:
 - Image ID
 - Correction status (`ok`, `corrected`)
 - Bounding boxes
 - Class labels
 - Mask references
 
-This separation ensures:
-- Readability
+Benefits:
 - Clean retraining datasets
 - Easy debugging
+- Clear separation between visuals and structured data
 
 ---
 
 ## Retraining Pipeline
 
-- Correction data is exported server-side
-- Training datasets are rebuilt automatically
-- Model fine-tuning uses:
+- Server-side script merges corrections with original predictions
+- YOLO model is retrained using:
   - Original Roboflow labels
   - Model predictions
   - User corrections
-
-This creates a **closed active learning loop**.
+- Incremental retraining reduces epochs for new data while preserving prior knowledge
+- Forms a **closed-loop active learning pipeline**
 
 ---
 
 ## Performance Considerations
 
-- SAM loaded once
-- No redundant disk writes
-- Lightweight frontend logic
-- Efficient batch handling
+- SAM is loaded **once**, minimizing redundant computations
+- Minimal disk writes; intermediate results handled efficiently
+- Frontend polling for retraining status is adjustable
+- Batch-based processing prevents server overload
 
 ---
 
-## Current Limitations
+## Limitations and Future Work
 
-- Corrections are box-based (not free-form)
-- No real-time SAM preview (by design)
-- Retraining is batch-based, not online
+### Current Limitations
+- Corrections are **box-based**, not free-form
+- No **real-time SAM preview**
+- Retraining is batch-based, not fully online
+- Single-user assumption for correction sessions
 
----
-
-## Future Improvements
-
+### Future Improvements
 - Confidence-based sample selection
-- Partial or incremental retraining
+- Incremental/partial retraining
 - Multi-user correction sessions
-- Dataset versioning
-- Model performance tracking per iteration
+- Dataset versioning and tracking per iteration
+- Automated model performance reporting
 
 ---
 
-## Summary
+## Installation and Usage
 
-This project extends a **manually labeled Roboflow dataset** into a **scalable active learning system**.
+### Requirements
 
-By combining:
-- Human correction
-- SAM refinement
-- Smart data merging
-- Iterative retraining
+- Python 3.10+
+- PyTorch with CUDA support
+- YOLOv8 (Ultralytics)
+- Flask
+- SAM dependencies (see Meta AI repository)
+- Roboflow dataset exported in YOLO format
 
-It provides a practical and production-ready approach to continuously improving segmentation models with minimal annotation effort.
+### Steps
 
----
+1. Clone repository:
+   ```bash
+   git clone 
+   
 
-## Acknowledgments
+2. Install dependencies:
 
-- **Roboflow** for dataset management and initial annotations
-- **Meta AI** for Segment Anything Model (SAM)
