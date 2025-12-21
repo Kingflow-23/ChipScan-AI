@@ -5,7 +5,7 @@ from segment_anything.segment_anything.predictor import SamPredictor
 from config import SAM_CHECKPOINT_PATH
 
 
-def load_sam_model(model_type: str = "vit_b"):
+def load_sam_model(model_type: str = "vit_h"):
     """
     Loads the SAM model and moves it to the appropriate device.
     """
