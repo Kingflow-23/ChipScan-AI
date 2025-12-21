@@ -110,6 +110,9 @@ uploadForm.onsubmit = async (e) => {
     showResultsBtn.style.display = "none";
     batchId = null;
 
+    const spinner = document.getElementById("spinnerOverlay");
+    spinner.style.display = "flex";  // show spinner
+
     const formData = new FormData(uploadForm);
 
     try {
@@ -134,6 +137,8 @@ uploadForm.onsubmit = async (e) => {
     } catch (err) {
         console.error("Prediction failed", err);
         alert("Prediction failed. Check console for details.");
+    } finally {
+        spinner.style.display = "none";  // hide spinner
     }
 };
 
@@ -158,6 +163,54 @@ document.querySelector('input[name="images"]').addEventListener('change', (e) =>
     });
 });
 </script>
+
+<div id="spinnerOverlay">
+    <div class="spinner-container">
+        <div class="spinner"></div>
+        <div class="spinner-text">Processing images, please wait...</div>
+    </div>
+</div>
+
+<style>
+#spinnerOverlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(255,255,255,0.7);
+    z-index: 9999;
+
+    justify-content: center;
+    align-items: center;
+}
+
+.spinner-container {
+    display: flex;
+    flex-direction: column; /* stack spinner and text */
+    align-items: center;
+    gap: 15px; /* space between spinner and text */
+}
+
+.spinner {
+    border: 8px solid #f3f3f3;
+    border-top: 8px solid #3498db;
+    border-radius: 50%;
+    width: 80px;
+    height: 80px;
+    animation: spin 1s linear infinite;
+}
+
+.spinner-text {
+    font-size: 18px;
+    color: #333;
+    text-align: center;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+</style>
 
 </body>
 </html>
