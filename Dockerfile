@@ -8,6 +8,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     git \
     libgl1 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Python deps
@@ -19,7 +20,7 @@ RUN pip install -r requirements.txt
 COPY . .
 
 # Expose Flask port
-EXPOSE 8000
+EXPOSE 5000
 
 # Production server
-CMD ["gunicorn", "-w", "1", "-b", "0.0.0.0:8000", "app.app:app"]
+CMD ["gunicorn", "-w", "1", "-b", "0.0.0.0:5000", "app.app:app"]
