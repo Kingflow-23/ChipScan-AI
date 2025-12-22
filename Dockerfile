@@ -17,7 +17,8 @@ RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
 # Copy code
-COPY . .
+COPY app/ ./app/
+COPY model/ ./model/
 
 # Expose Flask port
 EXPOSE 5000
