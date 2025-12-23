@@ -144,9 +144,10 @@ The frontend is a lightweight Flask-based web interface designed to support the 
 * Generate overlays with bounding boxes and class labels
 * Store prediction results for review
 
-```
-[ INSERT SCREENSHOT – Prediction Page ]
-```
+<img width="1877" height="1003" alt="image" src="https://github.com/user-attachments/assets/ae413b2c-98da-4e4a-9662-c2e37bf53a2f" />
+
+<img width="1861" height="997" alt="image" src="https://github.com/user-attachments/assets/bb971b96-0f92-422b-8388-a7da4c1eca99" />
+
 
 ---
 
@@ -162,9 +163,9 @@ The frontend is a lightweight Flask-based web interface designed to support the 
 
 Submitting no correction implicitly validates the prediction.
 
-```
-[ INSERT SCREENSHOT – Results Page ]
-```
+<img width="1862" height="1001" alt="image" src="https://github.com/user-attachments/assets/3f450d2e-97a1-4805-b269-73e86ca1df30" />
+
+<img width="948" height="521" alt="image" src="https://github.com/user-attachments/assets/0963e263-3fa7-4415-bb0b-c6bf80d59112" />
 
 ---
 
@@ -181,9 +182,12 @@ Submitting no correction implicitly validates the prediction.
 
 Submitted boxes are refined into masks using SAM.
 
-```
-[ INSERT SCREENSHOT – Correction Page ]
-```
+<img width="1865" height="1000" alt="image" src="https://github.com/user-attachments/assets/1f0fb0e2-a272-4221-a56e-d927dc2c7cbf" />
+
+<img width="1876" height="999" alt="image" src="https://github.com/user-attachments/assets/c2838c77-d23b-4eef-ad50-bb70be60cf17" />
+
+<img width="1877" height="1000" alt="image" src="https://github.com/user-attachments/assets/955d707e-465d-47d3-8232-bebb18e153bd" />
+
 
 ---
 
@@ -197,9 +201,7 @@ Submitted boxes are refined into masks using SAM.
 * Display retraining status (idle, running, completed, failed)
 * Surface backend errors if any
 
-```
-[ INSERT SCREENSHOT – Retraining Page ]
-```
+<img width="1878" height="1001" alt="image" src="https://github.com/user-attachments/assets/b20a8cef-8b4a-42f1-83a6-272c99d3fdf9" />
 
 ---
 
