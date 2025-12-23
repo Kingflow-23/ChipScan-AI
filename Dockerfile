@@ -25,4 +25,4 @@ COPY model/ ./model/
 EXPOSE 5000
 
 # Production server
-CMD ["gunicorn", "-w", "1", "-b", "0.0.0.0:5000", "app.app:app"]
+CMD ["gunicorn", "-w", "1", "-b", "0.0.0.0:${PORT:-5000}", "app.app:app"]
