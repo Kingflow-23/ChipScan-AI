@@ -148,7 +148,6 @@ The frontend is a lightweight Flask-based web interface designed to support the 
 
 <img width="1861" height="997" alt="image" src="https://github.com/user-attachments/assets/bb971b96-0f92-422b-8388-a7da4c1eca99" />
 
-
 ---
 
 ### 2. Results Page
@@ -185,6 +184,8 @@ Submitted boxes are refined into masks using SAM.
 <img width="1865" height="1000" alt="image" src="https://github.com/user-attachments/assets/1f0fb0e2-a272-4221-a56e-d927dc2c7cbf" />
 
 <img width="1876" height="999" alt="image" src="https://github.com/user-attachments/assets/c2838c77-d23b-4eef-ad50-bb70be60cf17" />
+
+If no changes has been made on the batch, UI inform user and don't let him retrain.
 
 <img width="1877" height="1000" alt="image" src="https://github.com/user-attachments/assets/955d707e-465d-47d3-8232-bebb18e153bd" />
 
@@ -278,6 +279,7 @@ This enables efficient iterative improvement.
 * Multi-user correction sessions
 * Dataset versioning
 * Automated evaluation dashboards
+* Scaling up: Better model for correction (sam-vit-h instead of sam-vit-b), more data for traininng a better yolo model (yolo11X maybe instead of 11m ...)
 
 ---
 
@@ -290,6 +292,8 @@ This enables efficient iterative improvement.
 * YOLOv8 (Ultralytics)
 * Flask
 * Segment Anything Model dependencies
+
+See the rest of the dependencies in the requirements.txt
 
 ### Local Usage
 
