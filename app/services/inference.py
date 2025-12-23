@@ -7,7 +7,12 @@ from config import CHIP_CLASS, VOID_CLASS
 
 
 def run_inference_service(
-    image_path: str, conf: float = 0.25, return_raw=False
+    image_path: str,
+    conf: float = 0.25,
+    batch_id: str | None = None,
+    save_csv: bool = False,
+    csv_dir=None,
+    return_raw=False,
 ) -> dict:
     results = run_inference(image_path, conf=conf)
     result = results[0]
@@ -95,6 +100,33 @@ def run_inference_service(
         "chips": chips_metrics,
         "voids": void_entries,
     }
+
+    # =========================
+    # CSV EXPORT (OPTIONAL)
+    # =========================
+    if save_csv and batch_id and csv_dir:
+        from utils.csv_utils import append_rows_to_csv
+        from pathlib import Path
+
+        csv_path = Path(csv_dir) / f"batch_{batch_id}.csv"
+
+        csv_rows = []
+        image_name = str(image_path).split("/")[-1]
+
+        for chip in chips_metrics:
+            csv_rows.append(
+                {
+                    "batch_id": batch_id,
+                    "image": image_name,
+                    "chip_id": chip["chip_id"],
+                    "chip_area": chip["chip_area"],
+                    "void_rate_pct": chip["void_rate_pct"],
+                    "max_void_pct": chip["max_void_pct"],
+                }
+            )
+
+        if csv_rows:
+            append_rows_to_csv(csv_path, csv_rows)
 
     if return_raw:
         return metrics_dict, result  # return both metrics and YOLO result

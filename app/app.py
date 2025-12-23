@@ -103,7 +103,13 @@ def predict():
         # -------------------------------
         # Inference
         # -------------------------------
-        metrics, yolo_result = run_inference_service(str(image_path), return_raw=True)
+        metrics, yolo_result = run_inference_service(
+            image_path=str(image_path),
+            batch_id=batch_id,
+            save_csv=True,
+            csv_dir=RESULT_DIR,
+            return_raw=True,
+        )
 
         # -------------------------------
         # Overlay generation
