@@ -45,7 +45,7 @@ _sam_predictor = initialize_predictor(load_sam_model())
 # ---------------------------------------------------------------------------
 
 
-@app.route("/", methods=["GET"])
+@app.route("/health", methods=["GET"])
 def health():
     return "OK", 200
 
