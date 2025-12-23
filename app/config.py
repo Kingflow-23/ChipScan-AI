@@ -18,8 +18,8 @@ RESULT_JSON_DIR = BASE_DIR / "static" / "results_json"
 LABELS_DIR = BASE_DIR / "static" / "labels"
 
 MODEL_NAME = "yolo11m-seg"
-SAM_MODEL_NAME = "sam_vit_h"
+SAM_MODEL_NAME = "sam_vit_b"
 
 NT_MODEL_PATH = MODEL_DIR / f"{MODEL_NAME}.pt"
 T_MODEL_PATH = MODEL_DIR / f"{MODEL_NAME}-trained.pt"
-SAM_CHECKPOINT_PATH = MODEL_DIR / f"{SAM_MODEL_NAME}_4b8939.pth"
+SAM_CHECKPOINT_PATH = MODEL_DIR / f"{SAM_MODEL_NAME}_01ec64.pth"
