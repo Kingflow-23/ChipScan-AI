@@ -1,3 +1,4 @@
+import os
 import cv2
 import json
 import uuid
@@ -42,6 +43,11 @@ _sam_predictor = initialize_predictor(load_sam_model())
 # ---------------------------------------------------------------------------
 # Routes – Pages
 # ---------------------------------------------------------------------------
+
+
+@app.route("/", methods=["GET"])
+def health():
+    return "OK", 200
 
 
 @app.route("/", methods=["GET"])
@@ -288,5 +294,6 @@ def retrain_status():
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    logger.info("Starting Flask app")
-    app.run(debug=True, use_reloader=False)
+    port = int(os.environ.get("PORT", 5000))
+    logger.info(f"Starting Flask app on port {port}")
+    app.run(debug=True, use_reloader=False, host="0.0.0.0", port=port)
