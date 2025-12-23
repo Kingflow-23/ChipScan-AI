@@ -1,46 +1,50 @@
 # Interactive Segmentation Correction with SAM and Active Learning
 
 ## Table of Contents
-1. [Project Overview](#project-overview)  
-2. [Motivation](#motivation)  
-3. [System Architecture](#system-architecture)  
-4. [Dataset](#dataset)  
-5. [Active Learning Workflow](#active-learning-workflow)  
-6. [Segment Anything Model (SAM) Integration](#segment-anything-model-sam-integration)  
-7. [Frontend: Batch Correction Interface](#frontend-batch-correction-interface)  
-8. [Correction Logic](#correction-logic)  
-9. [Data Organization](#data-organization)  
-10. [Retraining Pipeline](#retraining-pipeline)  
-11. [Performance Considerations](#performance-considerations)  
-12. [Limitations and Future Work](#limitations-and-future-work)  
-13. [Installation and Usage](#installation-and-usage)  
-14. [Acknowledgments](#acknowledgments)  
+
+1. [Project Overview](#project-overview)
+2. [Motivation](#motivation)
+3. [System Architecture](#system-architecture)
+4. [Dataset](#dataset)
+5. [Active Learning Workflow](#active-learning-workflow)
+6. [Segment Anything Model (SAM) Integration](#segment-anything-model-sam-integration)
+7. [Frontend: Web-Based Correction Interface](#frontend-web-based-correction-interface)
+8. [Correction Logic](#correction-logic)
+9. [Data Organization](#data-organization)
+10. [Retraining Pipeline](#retraining-pipeline)
+11. [Performance Considerations](#performance-considerations)
+12. [Limitations and Future Work](#limitations-and-future-work)
+13. [Installation and Usage](#installation-and-usage)
+14. [Deployment on Azure App Service](#deployment-on-azure-app-service)
+15. [Current Deployment Status and Blocking Issues](#current-deployment-status-and-blocking-issues)
 
 ---
 
 ## Project Overview
 
-This repository implements an **interactive human-in-the-loop correction system** for object detection and segmentation. The goal is to **improve model performance iteratively** using minimal manual labeling by focusing only on incorrect predictions.  
+This project implements an **interactive human-in-the-loop correction system** for object detection and segmentation. The objective is to iteratively improve model performance while **minimizing manual annotation effort** by focusing only on incorrect predictions.
 
 Key components:
-- Pre-trained object detection/segmentation model (YOLO)
-- Web-based correction interface
-- **Segment Anything Model (SAM)** for precise mask generation
-- Active learning loop for iterative retraining
 
-> Principle: **Correct only what is wrong; preserve what is already correct.**
+* YOLO-based object detection and segmentation model
+* Web-based frontend for prediction review and correction
+* **Segment Anything Model (SAM)** for high-quality mask refinement
+* Active learning loop with incremental retraining
+
+> Core principle: **Correct only what is wrong; preserve what is already correct.**
 
 ---
 
 ## Motivation
 
-Manual annotation is costly and time-consuming, especially for high-resolution images requiring precise segmentation masks.  
+High-quality segmentation annotation is expensive and time-consuming, particularly for high-resolution industrial imagery. This project addresses that problem by:
 
-This system addresses this by:
-- Using an initial trained model to generate predictions on new images
-- Allowing users to correct only erroneous regions
-- Leveraging corrections to improve the model iteratively
-- Reducing annotation workload while maintaining high-quality data  
+* Using a pretrained model to generate predictions on new data
+* Asking the user to correct only erroneous predictions
+* Leveraging SAM to automate fine-grained mask creation
+* Feeding corrections back into the training loop
+
+The result is a scalable **active learning system** that improves with minimal human intervention.
 
 ---
 
@@ -49,21 +53,30 @@ This system addresses this by:
 ### High-Level Pipeline
 
 1. **Initial Training**
-   - Model trained on manually labeled dataset from Roboflow.
+
+   * YOLO model trained on a Roboflow-labeled dataset.
 2. **Prediction**
-   - Model predicts objects on new image batches.
-   - Visual overlays are generated for user inspection.
-3. **User Correction**
-   - Corrections are made through a web-based interface.
-4. **SAM Refinement**
-   - Bounding boxes are refined into precise segmentation masks.
-5. **Feedback Collection**
-   - Metadata and corrections are stored in structured JSON.
-6. **Retraining**
-   - Original predictions and corrections are merged.
-   - Model is fine-tuned incrementally.
-   
-This workflow forms a **closed-loop active learning system**.
+
+   * Model performs inference on new image batches.
+   * Bounding boxes and masks are generated.
+3. **Results Review**
+
+   * Visual overlays and per-object metrics are displayed.
+4. **User Correction**
+
+   * Users correct only incorrect predictions via the frontend.
+5. **SAM Refinement**
+
+   * User-drawn bounding boxes are converted into precise masks.
+6. **Feedback Collection**
+
+   * Corrections and metadata are stored in structured JSON.
+7. **Retraining**
+
+   * Original predictions and corrections are merged.
+   * Model is fine-tuned incrementally.
+
+This architecture forms a **closed-loop active learning system**.
 
 ---
 
@@ -71,61 +84,122 @@ This workflow forms a **closed-loop active learning system**.
 
 ### Source
 
-The baseline dataset was sourced from **Roboflow**:
-- Images manually labeled with object classes such as:
-  - `Chip`
-  - `Void`
-- Annotations exported in detection/segmentation formats (YOLO-compatible)
+The baseline dataset was sourced from **Roboflow** and includes:
+
+* Images annotated with classes such as:
+
+  * `Chip`
+  * `Void`
+* YOLO-compatible detection and segmentation formats
+* Data augmentation (blur, rotation, etc.) applied via Roboflow
 
 ### Role in Active Learning
 
-- Baseline data used for initial model training
-- Subsequent corrections expand dataset iteratively
+* Initial dataset used for baseline training
+* User corrections progressively expand and refine the dataset
 
 ---
 
 ## Active Learning Workflow
 
 Instead of re-labeling entire datasets:
-1. Model predicts on new images
-2. Users review predictions
-3. Only misclassified regions are corrected
-4. Corrections are fed back into the retraining pipeline  
 
-This reduces labeling effort while improving model accuracy over time.
+1. The model predicts on unseen images
+2. The user reviews predictions
+3. Only incorrect regions are corrected
+4. Unsatisfactory predicted boxes can be deleted
+5. Corrections are reintegrated into retraining
+
+This approach significantly reduces annotation cost while improving model accuracy.
 
 ---
 
 ## Segment Anything Model (SAM) Integration
 
-SAM is integrated to convert **coarse user bounding boxes** into **high-quality masks**.
+SAM is used to convert **coarse user corrections** into **high-quality segmentation masks**.
 
-### Key Details:
-- SAM loaded once at application startup
-- Predictor reused across all correction requests
-- Reduces the need for manual polygon/mask drawing
-- Improves mask accuracy without increasing annotation burden
+Key characteristics:
 
-**Note:** SAM is applied **only during correction**, not during inference.
+* SAM is used only during correction, never during inference
+* Bounding boxes are sufficient input for mask generation
+* Manual polygon drawing is avoided entirely
+
+This design balances annotation speed with segmentation precision.
 
 ---
 
-## Frontend: Batch Correction Interface
+## Frontend: Web-Based Correction Interface
 
-### User Interaction
+The frontend is a lightweight Flask-based web interface designed to support the active learning loop. It is organized into four main pages.
 
-- Displays one image at a time
-- Shows model prediction overlay
-- Users draw bounding boxes around incorrect regions
-- Each bounding box is assigned a class (`Chip`, `Void`)
-- Undo functionality included
-- Submitting with no corrections indicates the prediction is correct
+---
 
-### Design Choice
+### 1. Prediction Page
 
-- Focused on **minimal user interaction**
-- No “mark as checked” buttons
-- Encourages efficiency and reduces cognitive load
+**Purpose:** Trigger model inference on new images.
+
+**Functionality:**
+
+* Launch batch prediction
+* Generate overlays with bounding boxes and class labels
+* Store prediction results for review
+
+```
+[ INSERT SCREENSHOT – Prediction Page ]
+```
+
+---
+
+### 2. Results Page
+
+**Purpose:** Review model predictions before correction.
+
+**Functionality:**
+
+* Display predicted images sequentially
+* Show bounding boxes, masks, and class labels
+* Display per-chip metrics
+
+Submitting no correction implicitly validates the prediction.
+
+```
+[ INSERT SCREENSHOT – Results Page ]
+```
+
+---
+
+### 3. Correction Page
+
+**Purpose:** Correct only erroneous predictions.
+
+**Functionality:**
+
+* Draw bounding boxes over incorrect regions
+* Assign class labels (`Chip`, `Void`)
+* Delete incorrect predicted boxes
+* Undo and modify corrections
+
+Submitted boxes are refined into masks using SAM.
+
+```
+[ INSERT SCREENSHOT – Correction Page ]
+```
+
+---
+
+### 4. Retraining Page
+
+**Purpose:** Monitor and control retraining.
+
+**Functionality:**
+
+* Trigger retraining manually
+* Display retraining status (idle, running, completed, failed)
+* Surface backend errors if any
+
+```
+[ INSERT SCREENSHOT – Retraining Page ]
+```
 
 ---
 
@@ -133,13 +207,14 @@ SAM is integrated to convert **coarse user bounding boxes** into **high-quality 
 
 ### Relabel-Only-Errors Strategy
 
-- Original model predictions are **preserved by default**
-- User corrections **override only erroneous regions**
-- During retraining:
-  - Corrected masks replace incorrect predictions
-  - Unmodified predictions remain unchanged
+* Original predictions are preserved by default
+* Corrections override only erroneous regions
+* During retraining:
 
-This ensures **valid annotations are never accidentally removed**.
+  * Corrected masks replace incorrect predictions
+  * Valid predictions remain unchanged
+
+This guarantees annotation integrity.
 
 ---
 
@@ -147,62 +222,60 @@ This ensures **valid annotations are never accidentally removed**.
 
 ### Results Directory
 
-- Stores visual outputs:
-  - Model overlays
-  - Corrected overlays
-  - SAM-generated masks (`.npy` files)
+Stores visual artifacts:
+
+* Prediction overlays
+* Corrected overlays
+* SAM-generated masks (`.npy`)
 
 ### Correction Metadata
 
-Stored separately in JSON:
-- Image ID
-- Correction status (`ok`, `corrected`)
-- Bounding boxes
-- Class labels
-- Mask references
+Stored as structured JSON:
 
-Benefits:
-- Clean retraining datasets
-- Easy debugging
-- Clear separation between visuals and structured data
+* Image ID
+* Correction status (`ok`, `corrected`)
+* Bounding boxes and class labels
+* Mask references
+
+This separation simplifies retraining and debugging.
 
 ---
 
 ## Retraining Pipeline
 
-- Server-side script merges corrections with original predictions
-- YOLO model is retrained using:
-  - Original Roboflow labels
-  - Model predictions
-  - User corrections
-- Incremental retraining reduces epochs for new data while preserving prior knowledge
-- Forms a **closed-loop active learning pipeline**
+* Corrections are merged with original labels and predictions
+* YOLO is retrained incrementally
+* Fewer epochs are used for new data to avoid catastrophic forgetting
+
+This enables efficient iterative improvement.
 
 ---
 
 ## Performance Considerations
 
-- SAM is loaded **once**, minimizing redundant computations
-- Minimal disk writes; intermediate results handled efficiently
-- Frontend polling for retraining status is adjustable
-- Batch-based processing prevents server overload
+* SAM invoked only when needed
+* Minimal disk I/O
+* Batch-based retraining
+* Asynchronous background retraining
 
 ---
 
 ## Limitations and Future Work
 
 ### Current Limitations
-- Corrections are **box-based**, not free-form
-- No **real-time SAM preview**
-- Retraining is batch-based, not fully online
-- Single-user assumption for correction sessions
+
+* Box-based corrections only
+* No real-time SAM preview
+* Batch retraining (not fully online)
+* Single-user workflow assumption
 
 ### Future Improvements
-- Confidence-based sample selection
-- Incremental/partial retraining
-- Multi-user correction sessions
-- Dataset versioning and tracking per iteration
-- Automated model performance reporting
+
+* Confidence-based sample selection
+* Incremental online learning
+* Multi-user correction sessions
+* Dataset versioning
+* Automated evaluation dashboards
 
 ---
 
@@ -210,19 +283,100 @@ Benefits:
 
 ### Requirements
 
-- Python 3.10+
-- PyTorch with CUDA support
-- YOLOv8 (Ultralytics)
-- Flask
-- SAM dependencies (see Meta AI repository)
-- Roboflow dataset exported in YOLO format
+* Python 3.10+
+* PyTorch (CPU or CUDA)
+* YOLOv8 (Ultralytics)
+* Flask
+* Segment Anything Model dependencies
 
-### Steps
+### Local Usage
 
-1. Clone repository:
-   ```bash
-   git clone 
-   
+1. Clone the repository
+2. Install dependencies
+3. Run the Flask application
+4. Access the web interface locally
 
-2. Install dependencies:
+---
 
+## Deployment on Azure App Service
+
+The application was containerized using Docker and deployed on **Azure App Service for Linux** using **Azure Container Registry (ACR)**.
+
+### Deployment Steps
+
+1. **Containerization**
+
+   * Application packaged into a Docker image
+   * Gunicorn used as the production WSGI server
+   * Application listens on port `5000`
+
+2. **Azure Container Registry (ACR)**
+
+   * ACR instance created
+   * Docker image pushed to ACR
+   * Admin credentials enabled for initial testing
+
+3. **Azure Web App (App Service)**
+
+   * Linux Web App created
+   * Container-based deployment selected
+   * Image pulled from ACR
+   * Authentication configured (ACR admin or managed identity)
+
+4. **Port Configuration**
+
+   * Azure automatically injects the `PORT` environment variable
+   * The container exposes port `5000`
+   * Azure maps traffic correctly when the app responds in time
+
+---
+
+## Current Deployment Status and Blocking Issues
+
+At the time of writing:
+
+* The container image **pulls successfully** from ACR
+* The container **starts correctly**
+* The application **runs locally without issues** using `docker run`
+
+However, on Azure App Service:
+
+* The **startup probe fails after several minutes**
+* Azure stops the container even though it initially reports "Container is running"
+
+### Root Causes Identified
+
+1. **Free F1 App Service Plan Limitations**
+
+   * Very limited CPU and memory
+   * Not suitable for large ML containers
+
+2. **Large Image Size**
+
+   * Image size ~2–3 GB after optimization
+   * Heavy dependencies (`torch`, `ultralytics`, SAM)
+
+3. **Cold Start and Model Load Time**
+
+   * SAM and YOLO model loading exceeds Azure startup probe timeout
+   * App does not respond fast enough to HTTP health checks
+
+4. **No GPU Support on App Service**
+
+   * CUDA dependencies are unused
+   * CPU-only inference increases startup time
+
+### Current Blocking Point
+
+The application exceeds the **startup and resource limits** of the Free App Service plan. While the container itself is valid, Azure terminates it before the app becomes responsive.
+
+### Recommended Next Steps
+
+* Upgrade to **Basic (B1) or higher App Service Plan**
+* Or migrate to **Azure Container Apps** or **Azure VM**
+* Further reduce image size and lazy-load models
+* Implement a lightweight health-check endpoint
+
+---
+
+**Status:** Architecture and implementation complete. Deployment blocked by infrastructure constraints, not application correctness.
