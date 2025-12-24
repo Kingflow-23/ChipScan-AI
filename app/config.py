@@ -16,6 +16,7 @@ UPLOAD_DIR = BASE_DIR / "static" / "uploads"
 RESULT_DIR = BASE_DIR / "static" / "results"
 RESULT_JSON_DIR = BASE_DIR / "static" / "results_json"
 LABELS_DIR = BASE_DIR / "static" / "labels"
+EXPORT_DIR = BASE_DIR / "static" / "exports"
 
 MODEL_NAME = "yolo11m-seg"
 SAM_MODEL_NAME = "sam_vit_b"
