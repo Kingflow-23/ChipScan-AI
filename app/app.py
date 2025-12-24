@@ -1,12 +1,13 @@
 import os
 import cv2
+import csv
 import json
 import uuid
 import logging
 import threading
 from pathlib import Path
 
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_file
 
 from services.inference import run_inference_service
 from services.correction import correct_segmentation_service
@@ -81,6 +82,56 @@ def admin():
 # ---------------------------------------------------------------------------
 
 
+@app.route("/export/batch/<batch_id>", methods=["GET"])
+def export_batch_csv(batch_id):
+    batch_path = RESULT_JSON_DIR / f"batch_{batch_id}.json"
+    if not batch_path.exists():
+        return "Batch not found", 404
+
+    with open(batch_path, "r") as f:
+        batch_results = json.load(f)
+
+    csv_path = EXPORT_DIR / f"batch_{batch_id}.csv"
+
+    # Write CSV
+    with open(csv_path, "w", newline="", encoding="utf-8") as csvfile:
+        writer = csv.writer(csvfile)
+        # Header
+        writer.writerow(
+            [
+                "batch_id",
+                "image",
+                "chip_id",
+                "chip_area",
+                "void_rate_pct",
+                "max_void_pct",
+            ]
+        )
+
+        for img in batch_results:
+            image_name = Path(img["image"]).name
+            chips = img.get("chips", [])
+            for chip in chips:
+                writer.writerow(
+                    [
+                        batch_id,
+                        image_name,
+                        chip["chip_id"],
+                        chip["chip_area"],
+                        chip["void_rate_pct"],
+                        chip["max_void_pct"],
+                    ]
+                )
+
+    # Send CSV to user
+    return send_file(
+        csv_path,
+        mimetype="text/csv",
+        as_attachment=True,
+        download_name=f"batch_{batch_id}.csv",
+    )
+
+
 @app.route("/predict", methods=["POST"])
 def predict():
     if "images" not in request.files:
@@ -106,8 +157,7 @@ def predict():
         metrics, yolo_result = run_inference_service(
             image_path=str(image_path),
             batch_id=batch_id,
-            save_csv=True,
-            csv_dir=RESULT_DIR,
+            save_csv=False,
             return_raw=True,
         )
 

@@ -231,6 +231,23 @@
 </div>
 {% endfor %}
 
+<!-- Export CSV button at the bottom -->
+<div style="width: 100%; display: flex; justify-content: center; margin: 40px 0;">
+    <button onclick="exportCSV()">Download Batch Results CSV</button>
+</div>
+
+<script>
+function exportCSV() {
+    {% if results|length > 0 %}
+    const batchId = "{{ results[0].batch_id }}";
+    const url = `/export/batch/${batchId}`;
+    window.open(url, "_blank");
+    {% else %}
+    alert("No images available to export.");
+    {% endif %}
+}
+</script>
+
 <script>
 function moveToLabeling() {
     {% if results|length > 0 %}
