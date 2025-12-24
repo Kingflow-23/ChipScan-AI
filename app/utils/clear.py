@@ -8,7 +8,7 @@ def clear_static_folder():
     Subdirectories and their contents inside the folders are also removed.
     The main directories themselves are preserved.
     """
-    folders = [RESULT_DIR, UPLOAD_DIR, LABELS_DIR, RESULT_JSON_DIR]
+    folders = [RESULT_DIR, UPLOAD_DIR, LABELS_DIR, RESULT_JSON_DIR, EXPORT_DIR]
 
     for folder in folders:
         print(f"Clearing folder: {folder}")

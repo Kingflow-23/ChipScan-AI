@@ -27,12 +27,14 @@ app/static/uploads/*
 app/static/results/*
 app/static/results_json/*
 app/static/labels/*
+app/static/exports/*
 
 # Except .gitkeep
 !app/static/uploads/.gitkeep
 !app/static/results/.gitkeep
 !app/static/results_json/.gitkeep
 !app/static/labels/.gitkeep
+!app/static/exports/.gitkeep
 
 # === Model Weights ===
 model/*.pt
