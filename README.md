@@ -322,6 +322,8 @@ The application was packaged into a Docker container to ensure portability and e
 - Application listens on **port 5000**
 - All dependencies included inside the image
 
+<img width="2239" height="552" alt="image" src="https://github.com/user-attachments/assets/c0621e05-32c2-4f66-b560-3413bc6aef6e" />
+
 ---
 
 ### 2. Azure Resource Group
@@ -331,6 +333,10 @@ A dedicated **Azure Resource Group** was created to host all deployment resource
 - Logical organization of cloud components
 - Simplified lifecycle management and cost tracking
 - Isolation from other Azure projects
+
+<img width="2173" height="1019" alt="image" src="https://github.com/user-attachments/assets/47a070a9-9f73-4202-beb0-c56bb78faf84" />
+
+On the free tier, you need to be particularly attentive to the location you choose (Azure gives you your allowed set of region for your student account).
 
 ---
 
@@ -346,6 +352,8 @@ An **Azure Container Registry** was used to store and distribute the application
 - Hosts custom AI containers (models, frameworks, dependencies)
 - Supports large container images
 - Provides secure, high-performance access inside Azure
+
+<img width="2180" height="1219" alt="image" src="https://github.com/user-attachments/assets/282807d1-f206-4b43-b8ae-5b8febc4eeb4" />
 
 ---
 
@@ -389,6 +397,10 @@ Public access was enabled using Azure Container Apps ingress.
 
 This allows direct access to the web interface and API endpoints.
 
+<img width="2155" height="1008" alt="image" src="https://github.com/user-attachments/assets/ab9e6fde-0c44-4e71-9ac8-8522fef4e9d5" />
+
+<img width="1506" height="412" alt="image" src="https://github.com/user-attachments/assets/6ecb78b6-06da-43da-8f56-06b4050a80d6" />
+
 ---
 
 ### 7. Deployment Validation
@@ -417,18 +429,18 @@ The application is successfully deployed as a **fully managed AI web service** o
 
 ### Prediction
 
-
+https://github.com/user-attachments/assets/4adcaa2c-4195-4f92-af1c-9b79fb5931ea
 
 ### Results
 
-
+https://github.com/user-attachments/assets/c3997b63-0e56-463c-bb10-5c6ade1751f9
 
 ### Correction
 
-
+https://github.com/user-attachments/assets/2d6fe9ff-c9a6-4674-a55e-2312fbe001f3
 
 ### Retraining
 
-
+https://github.com/user-attachments/assets/744c4534-1b8f-4aa2-8691-32ce776ca198
 
 ---
