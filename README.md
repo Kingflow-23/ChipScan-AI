@@ -16,7 +16,7 @@
 12. [Limitations and Future Work](#limitations-and-future-work)
 13. [Installation and Usage](#installation-and-usage)
 14. [Deployment on Azure App Service](#deployment-on-azure-app-service)
-15. [Current Deployment Status and Blocking Issues](#current-deployment-status-and-blocking-issues)
+15. [Demo](#demo)
 
 ---
 
@@ -166,6 +166,10 @@ Submitting no correction implicitly validates the prediction.
 
 <img width="948" height="521" alt="image" src="https://github.com/user-attachments/assets/0963e263-3fa7-4415-bb0b-c6bf80d59112" />
 
+We can save the results in a csv file at the bottom of the page.
+
+
+
 ---
 
 ### 3. Correction Page
@@ -199,8 +203,7 @@ If no changes has been made on the batch, UI inform user and don't let him retra
 **Functionality:**
 
 * Trigger retraining manually
-* Display retraining status (idle, running, completed, failed)
-* Surface backend errors if any
+* Display retraining is happening by a spinning wheel
 
 <img width="1878" height="1001" alt="image" src="https://github.com/user-attachments/assets/b20a8cef-8b4a-42f1-83a6-272c99d3fdf9" />
 
@@ -279,7 +282,7 @@ This enables efficient iterative improvement.
 * Multi-user correction sessions
 * Dataset versioning
 * Automated evaluation dashboards
-* Scaling up: Better model for correction (sam-vit-h instead of sam-vit-b), more data for traininng a better yolo model (yolo11X maybe instead of 11m ...)
+* Scaling up: Better model for correction (sam-vit-h instead of sam-vit-b), more data for traininng a better yolo model (yolo11X maybe instead of actual 11m ...)
 
 ---
 
@@ -304,85 +307,128 @@ See the rest of the dependencies in the requirements.txt
 
 ---
 
-## Deployment on Azure App Service
+## Deployment on Microsoft Azure
 
-The application was containerized using Docker and deployed on **Azure App Service for Linux** using **Azure Container Registry (ACR)**.
-
-### Deployment Steps
-
-1. **Containerization**
-
-   * Application packaged into a Docker image
-   * Gunicorn used as the production WSGI server
-   * Application listens on port `5000`
-
-2. **Azure Container Registry (ACR)**
-
-   * ACR instance created
-   * Docker image pushed to ACR
-   * Admin credentials enabled for initial testing
-
-3. **Azure Web App (App Service)**
-
-   * Linux Web App created
-   * Container-based deployment selected
-   * Image pulled from ACR
-   * Authentication configured (ACR admin or managed identity)
-
-4. **Port Configuration**
-
-   * Azure automatically injects the `PORT` environment variable
-   * The container exposes port `5000`
-   * Azure maps traffic correctly when the app responds in time
+The application was deployed as a containerized AI web service using **Azure Container Apps (ACA)**. This solution enables scalable execution of a compute-intensive AI workload without managing virtual machines.
 
 ---
 
-## Current Deployment Status and Blocking Issues
+### 1. Containerization
 
-At the time of writing:
+The application was packaged into a Docker container to ensure portability and environment consistency.
 
-* The container image **pulls successfully** from ACR
-* The container **starts correctly**
-* The application **runs locally without issues** using `docker run`
-
-However, on Azure App Service:
-
-* The **startup probe fails after several minutes**
-* Azure stops the container even though it initially reports "Container is running"
-
-### Root Causes Identified
-
-1. **Free F1 App Service Plan Limitations**
-
-   * Very limited CPU and memory
-   * Not suitable for large ML containers
-
-2. **Large Image Size**
-
-   * Image size ~2–3 GB after optimization
-   * Heavy dependencies (`torch`, `ultralytics`, SAM)
-
-3. **Cold Start and Model Load Time**
-
-   * SAM and YOLO model loading exceeds Azure startup probe timeout
-   * App does not respond fast enough to HTTP health checks
-
-4. **No GPU Support on App Service**
-
-   * CUDA dependencies are unused
-   * CPU-only inference increases startup time
-
-### Current Blocking Point
-
-The application exceeds the **startup and resource limits** of the Free App Service plan. While the container itself is valid, Azure terminates it before the app becomes responsive.
-
-### Recommended Next Steps
-
-* Upgrade to **Basic (B1) or higher App Service Plan**
-* Or migrate to **Azure Container Apps** or **Azure VM**
-* Further reduce image size and lazy-load models
-* Implement a lightweight health-check endpoint
+- Flask application served with **Gunicorn**
+- AI inference and processing logic embedded in the container
+- Application listens on **port 5000**
+- All dependencies included inside the image
 
 ---
 
-**Status:** Architecture and implementation complete. Deployment blocked by infrastructure constraints, not application correctness.
+### 2. Azure Resource Group
+
+A dedicated **Azure Resource Group** was created to host all deployment resources.
+
+- Logical organization of cloud components
+- Simplified lifecycle management and cost tracking
+- Isolation from other Azure projects
+
+---
+
+### 3. Azure Container Registry (ACR)
+
+An **Azure Container Registry** was used to store and distribute the application image.
+
+- Docker image built locally
+- Image pushed to a **private ACR instance**
+- Secure image pull by Azure Container Apps
+
+**Purpose of ACR:**
+- Hosts custom AI containers (models, frameworks, dependencies)
+- Supports large container images
+- Provides secure, high-performance access inside Azure
+
+---
+
+### 4. Azure Container Apps Environment
+
+A **Container Apps Environment** was created to act as a secure runtime boundary.
+
+- Manages networking, logging, and scaling
+- Provides isolation between container apps
+- Fully managed by Azure
+
+---
+
+### 5. Azure Container App Configuration
+
+The container app was configured to run the AI service.
+
+- Image source: Azure Container Registry
+- Automatic authentication to ACR
+- Default container entrypoint (Gunicorn)
+
+**Resource allocation:**
+- CPU and memory allocated for AI inference workload
+- Resources sufficient to load deep learning models at startup
+
+**Pricing model:**
+- Consumption-based pricing
+- No upfront payment required
+- Costs incurred only when the app is running
+
+---
+
+### 6. Ingress and Networking
+
+Public access was enabled using Azure Container Apps ingress.
+
+- Ingress enabled
+- HTTP traffic allowed
+- Target port set to **5000**
+- Azure-generated public URL provided
+
+This allows direct access to the web interface and API endpoints.
+
+---
+
+### 7. Deployment Validation
+
+The deployment was validated using Azure logs and diagnostics.
+
+- Container startup confirmed
+- Gunicorn successfully listening on port 5000
+- AI models loaded correctly
+- Web interface and API endpoints operational
+
+---
+
+### Final Outcome
+
+The application is successfully deployed as a **fully managed AI web service** on Azure Container Apps.
+
+- No virtual machines to manage
+- Scalable and resilient architecture
+- Secure container image delivery
+- Suitable for production-grade AI inference workloads
+
+---
+
+## Demo
+
+### Prediction
+
+
+
+### Results
+
+
+
+### Correction
+
+
+
+### Retraining
+
+
+
+---
